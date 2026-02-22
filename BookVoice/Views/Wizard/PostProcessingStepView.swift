@@ -34,17 +34,17 @@ struct PostProcessingStepView: View {
                             .font(.headline)
                         VStack(spacing: 10) {
                             TextField("Название", text: $viewModel.metadataTitle, prompt: Text("Название книги"))
-                                .textFieldStyle(.roundedBorder)
+                                .textFieldStyle(.plain)
 
                             TextField("Исполнитель / Чтец", text: $viewModel.metadataArtist, prompt: Text("Имя исполнителя"))
-                                .textFieldStyle(.roundedBorder)
+                                .textFieldStyle(.plain)
 
                             HStack(spacing: 12) {
                                 TextField("Альбом", text: $viewModel.metadataAlbum, prompt: Text("Название альбома"))
-                                    .textFieldStyle(.roundedBorder)
+                                    .textFieldStyle(.plain)
 
                                 TextField("Год", text: $viewModel.metadataYear, prompt: Text("2026"))
-                                    .textFieldStyle(.roundedBorder)
+                                    .textFieldStyle(.plain)
                                     .frame(width: 100)
                             }
                         }

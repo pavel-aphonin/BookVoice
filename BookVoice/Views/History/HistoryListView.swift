@@ -36,7 +36,7 @@ struct HistoryListView: View {
 
                 // Search
                 TextField("Поиск проектов...", text: $viewModel.searchText)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
                     .frame(maxWidth: 250)
 
                 // Status filter
