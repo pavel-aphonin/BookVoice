@@ -17,7 +17,7 @@ struct WizardContainerView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Top: Step indicator
-            GlassStepper(
+            StepIndicator(
                 steps: viewModel.stepTitles,
                 currentStep: viewModel.currentStep,
                 onStepTapped: { step in viewModel.goToStep(step) }
@@ -65,24 +65,32 @@ struct WizardContainerView: View {
                 Spacer()
 
                 if viewModel.canGoBack {
-                    GlassButton(title: "Назад", icon: "chevron.left") {
+                    Button {
                         viewModel.goToPreviousStep()
+                    } label: {
+                        Label("Назад", systemImage: "chevron.left")
                     }
                 }
 
                 if viewModel.isLastStep {
-                    GlassButton(title: "Экспорт", icon: "square.and.arrow.up.fill") {
+                    Button {
                         viewModel.saveCurrentStepToProject()
                         Task {
                             let audioFiles = viewModel.voiceover.segmentStates.compactMap { $0.audioURL }
                             await viewModel.postProcessing.export(audioFiles: audioFiles)
                         }
+                    } label: {
+                        Label("Экспорт", systemImage: "square.and.arrow.up.fill")
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(!viewModel.postProcessing.canExport)
                 } else {
-                    GlassButton(title: "Далее", icon: "chevron.right") {
+                    Button {
                         viewModel.goToNextStep()
+                    } label: {
+                        Label("Далее", systemImage: "chevron.right")
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(!viewModel.canGoForward)
                 }
             }

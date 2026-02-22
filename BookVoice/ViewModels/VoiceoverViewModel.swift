@@ -88,7 +88,7 @@ final class VoiceoverViewModel {
                 selectedModel = first
             }
         } catch {
-            errorMessage = "Failed to load models: \(error.localizedDescription)"
+            errorMessage = "Не удалось загрузить модели: \(error.localizedDescription)"
         }
         isLoadingModels = false
     }
@@ -106,7 +106,7 @@ final class VoiceoverViewModel {
 
     func synthesizeAll() async {
         guard !selectedModel.isEmpty else {
-            errorMessage = "Please select a model"
+            errorMessage = "Пожалуйста, выберите модель"
             return
         }
 

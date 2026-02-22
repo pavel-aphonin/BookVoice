@@ -63,7 +63,7 @@ struct AudioPlayerBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .glassEffect(.regular, in: .rect)
+        .background(.bar)
     }
 
     private func formatTime(_ seconds: Double) -> String {
@@ -87,11 +87,4 @@ struct AudioPlayerBar: View {
         )
     }
     .frame(width: 600, height: 300)
-    .background(
-        LinearGradient(
-            colors: [.blue, .purple],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    )
 }

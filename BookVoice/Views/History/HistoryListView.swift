@@ -35,18 +35,12 @@ struct HistoryListView: View {
                 Spacer()
 
                 // Search
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(.secondary)
-                    TextField("Поиск проектов...", text: $viewModel.searchText)
-                        .textFieldStyle(.plain)
-                }
-                .padding(8)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
-                .frame(maxWidth: 250)
+                TextField("Поиск проектов...", text: $viewModel.searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 250)
 
                 // Status filter
-                Picker("Status", selection: $viewModel.selectedStatus) {
+                Picker("Статус", selection: $viewModel.selectedStatus) {
                     Text("Все").tag(nil as ProjectStatus?)
                     ForEach(ProjectStatus.allCases, id: \.self) { status in
                         Text(status.displayName).tag(status as ProjectStatus?)
@@ -74,25 +68,20 @@ struct HistoryListView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        ForEach(filtered) { project in
-                            GlassCard {
-                                HistoryRowView(project: project)
-                            }
-                            .onTapGesture { onOpenProject(project) }
-                            .contextMenu {
-                                Button("Открыть") { onOpenProject(project) }
-                                Divider()
-                                Button("Удалить", role: .destructive) {
-                                    projectToDelete = project
-                                    showDeleteAlert = true
-                                }
+                List(filtered) { project in
+                    HistoryRowView(project: project)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onOpenProject(project) }
+                        .contextMenu {
+                            Button("Открыть") { onOpenProject(project) }
+                            Divider()
+                            Button("Удалить", role: .destructive) {
+                                projectToDelete = project
+                                showDeleteAlert = true
                             }
                         }
-                    }
-                    .padding(16)
                 }
+                .listStyle(.inset(alternatesRowBackgrounds: true))
             }
         }
         .alert("Удалить проект?", isPresented: $showDeleteAlert) {

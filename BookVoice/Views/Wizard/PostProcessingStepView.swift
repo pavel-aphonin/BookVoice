@@ -17,50 +17,31 @@ struct PostProcessingStepView: View {
             HStack(alignment: .top, spacing: 24) {
                 // Left: Format and metadata
                 VStack(spacing: 16) {
-                    GlassPanel(padding: 16) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Формат вывода")
-                                .font(.headline)
-
-                            Picker("Format", selection: $viewModel.outputFormat) {
-                                ForEach(AudioFormat.allCases, id: \.self) { format in
-                                    Text(format.displayName).tag(format)
-                                }
+                    GroupBox("Формат вывода") {
+                        Picker("Формат", selection: $viewModel.outputFormat) {
+                            ForEach(AudioFormat.allCases, id: \.self) { format in
+                                Text(format.displayName).tag(format)
                             }
-                            .pickerStyle(.segmented)
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
                     }
 
-                    GlassPanel(padding: 16) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Метаданные")
-                                .font(.headline)
+                    GroupBox("Метаданные") {
+                        VStack(spacing: 10) {
+                            TextField("Название", text: $viewModel.metadataTitle, prompt: Text("Название книги"))
+                                .textFieldStyle(.roundedBorder)
 
-                            GlassTextField(
-                                label: "Название",
-                                text: $viewModel.metadataTitle,
-                                prompt: "Название книги"
-                            )
-
-                            GlassTextField(
-                                label: "Исполнитель / Чтец",
-                                text: $viewModel.metadataArtist,
-                                prompt: "Имя исполнителя"
-                            )
+                            TextField("Исполнитель / Чтец", text: $viewModel.metadataArtist, prompt: Text("Имя исполнителя"))
+                                .textFieldStyle(.roundedBorder)
 
                             HStack(spacing: 12) {
-                                GlassTextField(
-                                    label: "Альбом",
-                                    text: $viewModel.metadataAlbum,
-                                    prompt: "Название альбома"
-                                )
+                                TextField("Альбом", text: $viewModel.metadataAlbum, prompt: Text("Название альбома"))
+                                    .textFieldStyle(.roundedBorder)
 
-                                GlassTextField(
-                                    label: "Год",
-                                    text: $viewModel.metadataYear,
-                                    prompt: "2026"
-                                )
-                                .frame(width: 100)
+                                TextField("Год", text: $viewModel.metadataYear, prompt: Text("2026"))
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 100)
                             }
                         }
                     }
@@ -68,12 +49,8 @@ struct PostProcessingStepView: View {
 
                 // Right: Cover image and actions
                 VStack(spacing: 16) {
-                    GlassPanel(padding: 16) {
+                    GroupBox("Обложка") {
                         VStack(spacing: 12) {
-                            Text("Обложка")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
                             if let data = viewModel.coverImageData,
                                let nsImage = NSImage(data: data) {
                                 Image(nsImage: nsImage)
@@ -83,7 +60,7 @@ struct PostProcessingStepView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                             } else {
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.glassBackground)
+                                    .fill(.quaternary)
                                     .frame(height: 160)
                                     .overlay {
                                         VStack(spacing: 8) {
@@ -97,30 +74,42 @@ struct PostProcessingStepView: View {
                                     }
                             }
 
-                            GlassButton(title: "Выбрать изображение", icon: "photo.badge.plus") {
+                            Button {
                                 viewModel.selectCoverImage()
+                            } label: {
+                                Label("Выбрать изображение", systemImage: "photo.badge.plus")
                             }
                         }
                     }
 
                     // Export status
                     if viewModel.isExporting {
-                        GlassProgressBar(
-                            progress: viewModel.progress,
-                            label: "Экспорт..."
-                        )
+                        VStack(spacing: 4) {
+                            HStack {
+                                Text("Экспорт...")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(Int(viewModel.progress * 100))%")
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                            ProgressView(value: viewModel.progress)
+                        }
                     }
 
-                    if let url = viewModel.outputURL {
-                        GlassPanel(padding: 12) {
+                    if let _ = viewModel.outputURL {
+                        GroupBox {
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
                                 Text("Экспорт завершён")
                                     .font(.subheadline)
                                 Spacer()
-                                GlassButton(title: "Показать в Finder", icon: "folder") {
+                                Button {
                                     viewModel.revealInFinder()
+                                } label: {
+                                    Label("Показать в Finder", systemImage: "folder")
                                 }
                             }
                         }

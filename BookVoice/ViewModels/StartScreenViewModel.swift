@@ -12,7 +12,7 @@ final class StartScreenViewModel {
     var projectToDelete: VoiceoverProject?
 
     func createNewProject(in context: ModelContext) -> VoiceoverProject {
-        let project = VoiceoverProject(title: "Untitled Project")
+        let project = VoiceoverProject(title: "Без названия")
         context.insert(project)
         AppLogger.shared.info("Created new project: \(project.id)")
         return project

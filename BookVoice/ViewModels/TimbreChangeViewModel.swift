@@ -50,7 +50,7 @@ final class TimbreChangeViewModel {
                 modelPath = first
             }
         } catch {
-            errorMessage = "Failed to load RVC models: \(error.localizedDescription)"
+            errorMessage = "Не удалось загрузить модели RVC: \(error.localizedDescription)"
         }
         isLoadingModels = false
     }
@@ -60,7 +60,7 @@ final class TimbreChangeViewModel {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.data]
-        panel.message = "Select an RVC model file (.pth)"
+        panel.message = "Выберите файл модели RVC (.pth)"
 
         if panel.runModal() == .OK, let url = panel.url {
             modelPath = url.path
@@ -72,7 +72,7 @@ final class TimbreChangeViewModel {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.audio]
-        panel.message = "Select a voice sample audio file"
+        panel.message = "Выберите аудиофайл с образцом голоса"
 
         if panel.runModal() == .OK, let url = panel.url {
             voiceSampleURL = url
