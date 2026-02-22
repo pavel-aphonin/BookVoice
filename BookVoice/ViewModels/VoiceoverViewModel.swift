@@ -136,15 +136,16 @@ final class VoiceoverViewModel {
                         apiPort: apiPort,
                         outputDirectory: outputDir,
                         progressHandler: { [weak self] prog in
+                            guard let self else { return }
                             Task { @MainActor in
-                                self?.progress = prog
+                                self.progress = prog
                                 let completedCount = Int(prog * Double(segments.count))
-                                self?.currentSegmentIndex = completedCount
-                                for i in 0..<(self?.segmentStates.count ?? 0) {
+                                self.currentSegmentIndex = completedCount
+                                for i in 0..<self.segmentStates.count {
                                     if i < completedCount {
-                                        self?.segmentStates[i].status = .completed
+                                        self.segmentStates[i].status = .completed
                                     } else if i == completedCount {
-                                        self?.segmentStates[i].status = .inProgress
+                                        self.segmentStates[i].status = .inProgress
                                     }
                                 }
                             }
