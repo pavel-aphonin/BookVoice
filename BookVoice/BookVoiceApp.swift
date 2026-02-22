@@ -24,7 +24,7 @@ struct BookVoiceApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            fatalError("Не удалось создать ModelContainer: \(error)")
         }
     }()
 
@@ -34,6 +34,8 @@ struct BookVoiceApp: App {
                 .environment(ServiceContainer.shared)
         }
         .modelContainer(sharedModelContainer)
+        .windowToolbarStyle(.unified)
+        .windowStyle(.automatic)
 
         Settings {
             SettingsView()

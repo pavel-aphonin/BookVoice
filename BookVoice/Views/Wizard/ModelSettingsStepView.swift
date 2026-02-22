@@ -17,6 +17,7 @@ struct ModelSettingsStepView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
             }
 
             Section("Подключение") {

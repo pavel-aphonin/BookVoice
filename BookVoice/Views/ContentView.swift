@@ -94,6 +94,7 @@ struct ContentView: View {
                 .transition(.move(edge: .bottom))
             }
         }
+        .containerBackground(.thickMaterial, for: .window)
         .frame(
             minWidth: AppConstants.minWindowWidth,
             minHeight: AppConstants.minWindowHeight
