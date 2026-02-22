@@ -84,7 +84,8 @@ struct StartScreenView: View {
                                 }
                             }
                     }
-                    .listStyle(.inset(alternatesRowBackgrounds: true))
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
             .frame(maxWidth: .infinity)

@@ -101,6 +101,7 @@ struct TimbreChangeStepView: View {
                     }
                 }
                 .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
 
                 // Progress
                 if viewModel.isConverting {

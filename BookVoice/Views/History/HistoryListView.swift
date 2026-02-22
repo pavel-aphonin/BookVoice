@@ -81,7 +81,8 @@ struct HistoryListView: View {
                             }
                         }
                 }
-                .listStyle(.inset(alternatesRowBackgrounds: true))
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
         .alert("Удалить проект?", isPresented: $showDeleteAlert) {

@@ -11,66 +11,64 @@ struct VoiceoverStepView: View {
     var body: some View {
         VStack(spacing: 16) {
             // Top controls
-            GroupBox {
-                VStack(spacing: 12) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("TTS-модель")
-                                .font(.headline)
-                            if viewModel.isLoadingModels {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Picker("Модель", selection: $viewModel.selectedModel) {
-                                    if viewModel.availableModels.isEmpty {
-                                        Text("Нет доступных моделей").tag("")
-                                    }
-                                    ForEach(viewModel.availableModels, id: \.self) { model in
-                                        Text(model).tag(model)
-                                    }
+            VStack(spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("TTS-модель")
+                            .font(.headline)
+                        if viewModel.isLoadingModels {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Picker("Модель", selection: $viewModel.selectedModel) {
+                                if viewModel.availableModels.isEmpty {
+                                    Text("Нет доступных моделей").tag("")
                                 }
-                                .labelsHidden()
-                                .frame(minWidth: 200)
+                                ForEach(viewModel.availableModels, id: \.self) { model in
+                                    Text(model).tag(model)
+                                }
                             }
+                            .labelsHidden()
+                            .frame(minWidth: 200)
                         }
-
-                        Spacer()
-
-                        Button {
-                            if viewModel.isSynthesizing {
-                                Task { await viewModel.cancelSynthesis() }
-                            } else {
-                                Task { await viewModel.synthesizeAll() }
-                            }
-                        } label: {
-                            Label(
-                                viewModel.isSynthesizing ? "Отмена" : "Озвучить всё",
-                                systemImage: viewModel.isSynthesizing ? "stop.fill" : "waveform"
-                            )
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(viewModel.selectedModel.isEmpty && !viewModel.isSynthesizing)
                     }
 
-                    HStack(spacing: 20) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Скорость: \(viewModel.speed, specifier: "%.1f")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Slider(value: $viewModel.speed, in: 0.5...2.0, step: 0.1)
-                        }
+                    Spacer()
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Высота тона: \(viewModel.pitch, specifier: "%.1f")")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Slider(value: $viewModel.pitch, in: 0.5...2.0, step: 0.1)
+                    Button {
+                        if viewModel.isSynthesizing {
+                            Task { await viewModel.cancelSynthesis() }
+                        } else {
+                            Task { await viewModel.synthesizeAll() }
                         }
-
-                        TextField("Эмоция", text: $viewModel.emotion, prompt: Text("напр., нейтральная"))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 150)
+                    } label: {
+                        Label(
+                            viewModel.isSynthesizing ? "Отмена" : "Озвучить всё",
+                            systemImage: viewModel.isSynthesizing ? "stop.fill" : "waveform"
+                        )
                     }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(viewModel.selectedModel.isEmpty && !viewModel.isSynthesizing)
+                }
+
+                HStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Скорость: \(viewModel.speed, specifier: "%.1f")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Slider(value: $viewModel.speed, in: 0.5...2.0, step: 0.1)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Высота тона: \(viewModel.pitch, specifier: "%.1f")")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Slider(value: $viewModel.pitch, in: 0.5...2.0, step: 0.1)
+                    }
+
+                    TextField("Эмоция", text: $viewModel.emotion, prompt: Text("напр., нейтральная"))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 150)
                 }
             }
 
@@ -133,7 +131,8 @@ struct VoiceoverStepView: View {
                         }
                     }
                 }
-                .listStyle(.inset(alternatesRowBackgrounds: true))
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
         .task {

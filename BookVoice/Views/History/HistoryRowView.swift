@@ -85,7 +85,7 @@ struct HistoryRowView: View {
     List {
         HistoryRowView(project: project)
     }
-    .listStyle(.inset(alternatesRowBackgrounds: true))
+    .listStyle(.plain)
     .frame(width: 400)
     .padding()
 }
