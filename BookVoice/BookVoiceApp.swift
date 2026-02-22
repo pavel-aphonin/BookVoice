@@ -34,9 +34,12 @@ struct BookVoiceApp: App {
                 .environment(ServiceContainer.shared)
         }
         .modelContainer(sharedModelContainer)
-        .windowToolbarStyle(.unified)
-        .windowStyle(.automatic)
         .defaultSize(width: 900, height: 600)
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                AboutMenuButton()
+            }
+        }
 
         Settings {
             SettingsView()
@@ -44,7 +47,13 @@ struct BookVoiceApp: App {
                 .containerBackground(.thickMaterial, for: .window)
         }
         .modelContainer(sharedModelContainer)
-        .windowToolbarStyle(.unified)
         .windowStyle(.automatic)
+
+        Window("О программе", id: "about") {
+            AboutView()
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .defaultSize(width: 300, height: 280)
     }
 }
