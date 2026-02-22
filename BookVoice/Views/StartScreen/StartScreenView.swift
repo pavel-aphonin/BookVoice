@@ -34,10 +34,14 @@ struct StartScreenView: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
 
-                GlassButton(title: "Новая озвучка", icon: "plus.circle.fill") {
+                Button {
                     let project = viewModel.createNewProject(in: modelContext)
                     onNewProject(project)
+                } label: {
+                    Label("Новая озвучка", systemImage: "plus.circle.fill")
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
 
                 Spacer()
             }
@@ -68,23 +72,19 @@ struct StartScreenView: View {
                     )
                     Spacer()
                 } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(recentProjects.prefix(10)) { project in
-                                GlassCard {
-                                    ProjectRow(project: project)
-                                }
-                                .onTapGesture { onOpenProject(project) }
-                                .contextMenu {
-                                    Button("Открыть") { onOpenProject(project) }
-                                    Divider()
-                                    Button("Удалить", role: .destructive) {
-                                        viewModel.confirmDelete(project)
-                                    }
+                    List(recentProjects.prefix(10), id: \.id) { project in
+                        ProjectRow(project: project)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onOpenProject(project) }
+                            .contextMenu {
+                                Button("Открыть") { onOpenProject(project) }
+                                Divider()
+                                Button("Удалить", role: .destructive) {
+                                    viewModel.confirmDelete(project)
                                 }
                             }
-                        }
                     }
+                    .listStyle(.inset(alternatesRowBackgrounds: true))
                 }
             }
             .frame(maxWidth: .infinity)
@@ -127,13 +127,7 @@ private struct ProjectRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(
-                        LinearGradient(
-                            colors: [.accentColor.opacity(0.3), .accentColor.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(.quaternary)
                     .frame(width: 48, height: 48)
                     .overlay {
                         Image(systemName: "book.fill")
@@ -163,7 +157,7 @@ private struct ProjectRow: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
-        .padding(12)
+        .padding(.vertical, 4)
     }
 }
 

@@ -49,7 +49,7 @@ final class TextUploadViewModel {
             fileName = url.lastPathComponent
             await segmentText()
         } catch {
-            errorMessage = "Failed to load file: \(error.localizedDescription)"
+            errorMessage = "Не удалось загрузить файл: \(error.localizedDescription)"
         }
 
         isLoading = false
@@ -68,7 +68,7 @@ final class TextUploadViewModel {
             totalSegmentCount = segments.count
             previewSegments = Array(segments.prefix(AppConstants.maxPreviewSegments))
         } catch {
-            errorMessage = "Segmentation failed: \(error.localizedDescription)"
+            errorMessage = "Ошибка сегментации: \(error.localizedDescription)"
         }
     }
 

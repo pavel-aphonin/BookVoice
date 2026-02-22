@@ -20,13 +20,7 @@ struct HistoryRowView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        LinearGradient(
-                            colors: [.accentColor.opacity(0.3), .accentColor.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(.quaternary)
                     .frame(width: 56, height: 56)
                     .overlay {
                         Image(systemName: "book.fill")
@@ -61,7 +55,7 @@ struct HistoryRowView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                Text("Step \(project.currentStep)/5")
+                Text("Шаг \(project.currentStep)/5")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
 
@@ -76,7 +70,7 @@ struct HistoryRowView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
-        .padding(12)
+        .padding(.vertical, 4)
     }
 }
 
@@ -88,9 +82,10 @@ struct HistoryRowView: View {
         project.currentStep = 3
     }()
 
-    GlassCard {
+    List {
         HistoryRowView(project: project)
     }
+    .listStyle(.inset(alternatesRowBackgrounds: true))
     .frame(width: 400)
     .padding()
 }

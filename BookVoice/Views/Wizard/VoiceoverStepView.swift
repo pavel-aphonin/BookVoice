@@ -9,19 +9,19 @@ struct VoiceoverStepView: View {
     @Bindable var viewModel: VoiceoverViewModel
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             // Top controls
-            GlassPanel(padding: 16) {
-                VStack(spacing: 16) {
+            GroupBox {
+                VStack(spacing: 12) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("TTS-модель")
                                 .font(.headline)
                             if viewModel.isLoadingModels {
                                 ProgressView()
-                                    .scaleEffect(0.7)
+                                    .controlSize(.small)
                             } else {
-                                Picker("Model", selection: $viewModel.selectedModel) {
+                                Picker("Модель", selection: $viewModel.selectedModel) {
                                     if viewModel.availableModels.isEmpty {
                                         Text("Нет доступных моделей").tag("")
                                     }
@@ -36,50 +36,58 @@ struct VoiceoverStepView: View {
 
                         Spacer()
 
-                        GlassButton(
-                            title: viewModel.isSynthesizing ? "Отмена" : "Озвучить всё",
-                            icon: viewModel.isSynthesizing ? "stop.fill" : "waveform"
-                        ) {
+                        Button {
                             if viewModel.isSynthesizing {
                                 Task { await viewModel.cancelSynthesis() }
                             } else {
                                 Task { await viewModel.synthesizeAll() }
                             }
+                        } label: {
+                            Label(
+                                viewModel.isSynthesizing ? "Отмена" : "Озвучить всё",
+                                systemImage: viewModel.isSynthesizing ? "stop.fill" : "waveform"
+                            )
                         }
+                        .buttonStyle(.borderedProminent)
                         .disabled(viewModel.selectedModel.isEmpty && !viewModel.isSynthesizing)
                     }
 
-                    HStack(spacing: 24) {
-                        GlassSlider(
-                            value: $viewModel.speed,
-                            range: 0.5...2.0,
-                            step: 0.1,
-                            label: "Скорость"
-                        )
+                    HStack(spacing: 20) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Скорость: \(viewModel.speed, specifier: "%.1f")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Slider(value: $viewModel.speed, in: 0.5...2.0, step: 0.1)
+                        }
 
-                        GlassSlider(
-                            value: $viewModel.pitch,
-                            range: 0.5...2.0,
-                            step: 0.1,
-                            label: "Высота тона"
-                        )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Высота тона: \(viewModel.pitch, specifier: "%.1f")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Slider(value: $viewModel.pitch, in: 0.5...2.0, step: 0.1)
+                        }
 
-                        GlassTextField(
-                            label: "Эмоция",
-                            text: $viewModel.emotion,
-                            prompt: "напр., нейтральная, радостная"
-                        )
-                        .frame(maxWidth: 150)
+                        TextField("Эмоция", text: $viewModel.emotion, prompt: Text("напр., нейтральная"))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 150)
                     }
                 }
             }
 
             // Progress
             if viewModel.isSynthesizing {
-                GlassProgressBar(
-                    progress: viewModel.progress,
-                    label: "Синтез сегмента \(viewModel.currentSegmentIndex + 1) из \(viewModel.totalSegments)..."
-                )
+                VStack(spacing: 4) {
+                    HStack {
+                        Text("Синтез сегмента \(viewModel.currentSegmentIndex + 1) из \(viewModel.totalSegments)...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(viewModel.progress * 100))%")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: viewModel.progress)
+                }
             }
 
             if let error = viewModel.errorMessage {
@@ -89,47 +97,43 @@ struct VoiceoverStepView: View {
             }
 
             // Segment list
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    if viewModel.segmentStates.isEmpty {
-                        ContentUnavailableView(
-                            "Нет сегментов",
-                            systemImage: "text.line.first.and.arrowtriangle.forward",
-                            description: Text("Сначала загрузите текст на предыдущем шаге.")
-                        )
-                    } else {
-                        ForEach(viewModel.segmentStates) { state in
-                            GlassPanel(padding: 8) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: state.statusIcon)
-                                        .foregroundStyle(state.statusColor)
-                                        .frame(width: 20)
+            if viewModel.segmentStates.isEmpty {
+                Spacer()
+                ContentUnavailableView(
+                    "Нет сегментов",
+                    systemImage: "text.line.first.and.arrowtriangle.forward",
+                    description: Text("Сначала загрузите текст на предыдущем шаге.")
+                )
+                Spacer()
+            } else {
+                List(viewModel.segmentStates) { state in
+                    HStack(spacing: 8) {
+                        Image(systemName: state.statusIcon)
+                            .foregroundStyle(state.statusColor)
+                            .frame(width: 20)
 
-                                    Text("Сегмент \(state.index + 1)")
-                                        .font(.subheadline.bold())
-                                        .frame(width: 80, alignment: .leading)
+                        Text("Сегмент \(state.index + 1)")
+                            .font(.subheadline.bold())
+                            .frame(width: 80, alignment: .leading)
 
-                                    Text(state.previewText)
-                                        .lineLimit(1)
-                                        .foregroundStyle(.secondary)
-                                        .font(.caption)
+                        Text(state.previewText)
+                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                            .font(.caption)
 
-                                    Spacer()
+                        Spacer()
 
-                                    if state.isCompleted {
-                                        Button {
-                                            Task { await viewModel.previewSegment(state.index) }
-                                        } label: {
-                                            Image(systemName: "play.circle")
-                                        }
-                                        .buttonStyle(.plain)
-                                        .foregroundStyle(.tint)
-                                    }
-                                }
+                        if state.isCompleted {
+                            Button {
+                                Task { await viewModel.previewSegment(state.index) }
+                            } label: {
+                                Image(systemName: "play.circle")
                             }
+                            .buttonStyle(.borderless)
                         }
                     }
                 }
+                .listStyle(.inset(alternatesRowBackgrounds: true))
             }
         }
         .task {

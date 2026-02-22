@@ -44,11 +44,8 @@ struct ProjectDetailView: View {
                 Divider()
 
                 // Settings summary
-                GlassPanel(padding: 16) {
+                GroupBox("Настройки") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Настройки")
-                            .font(.headline)
-
                         LabeledContent("Провайдер", value: project.ttsProvider.displayName)
                         LabeledContent("API", value: "\(project.apiURL):\(project.apiPort)")
                         LabeledContent("Сегментация", value: project.segmentationStrategy.displayName)
@@ -63,11 +60,8 @@ struct ProjectDetailView: View {
 
                 // Segments
                 if !project.textSegments.isEmpty {
-                    GlassPanel(padding: 16) {
+                    GroupBox("Текстовые сегменты (\(project.textSegments.count))") {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Текстовые сегменты (\(project.textSegments.count))")
-                                .font(.headline)
-
                             ForEach(project.textSegments.sorted(by: { $0.index < $1.index }).prefix(5), id: \.id) { segment in
                                 HStack {
                                     Text("Сегмент \(segment.index + 1)")

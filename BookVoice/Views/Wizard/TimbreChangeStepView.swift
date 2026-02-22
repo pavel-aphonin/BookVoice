@@ -19,100 +19,103 @@ struct TimbreChangeStepView: View {
             }
 
             if viewModel.isEnabled {
-                GlassPanel(padding: 20) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Model selection
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Модель RVC")
-                                .font(.headline)
-
-                            HStack {
-                                if viewModel.isLoadingModels {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                } else {
-                                    Picker("Model", selection: $viewModel.modelPath) {
-                                        if viewModel.availableModels.isEmpty {
-                                            Text("Нет доступных моделей").tag("")
-                                        }
-                                        ForEach(viewModel.availableModels, id: \.self) { model in
-                                            Text(model).tag(model)
-                                        }
+                Form {
+                    Section("Модель RVC") {
+                        HStack {
+                            if viewModel.isLoadingModels {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Picker("Модель", selection: $viewModel.modelPath) {
+                                    if viewModel.availableModels.isEmpty {
+                                        Text("Нет доступных моделей").tag("")
                                     }
-                                    .labelsHidden()
+                                    ForEach(viewModel.availableModels, id: \.self) { model in
+                                        Text(model).tag(model)
+                                    }
                                 }
+                                .labelsHidden()
+                            }
 
-                                GlassButton(title: "Обзор", icon: "folder") {
-                                    viewModel.browseModel()
-                                }
+                            Button {
+                                viewModel.browseModel()
+                            } label: {
+                                Label("Обзор", systemImage: "folder")
                             }
                         }
+                    }
 
-                        Divider()
+                    Section("Параметры") {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Индекс: \(viewModel.indexRate, specifier: "%.2f")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Slider(value: $viewModel.indexRate, in: 0...1, step: 0.05)
+                        }
 
-                        // Parameters
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Параметры")
-                                .font(.headline)
-
-                            GlassSlider(
-                                value: $viewModel.indexRate,
-                                range: 0...1,
-                                step: 0.05,
-                                label: "Индекс"
-                            )
-
-                            GlassIntSlider(
-                                value: $viewModel.filterRadius,
-                                range: 0...7,
-                                label: "Радиус фильтра"
-                            )
-
-                            GlassSlider(
-                                value: $viewModel.protectVoiceless,
-                                range: 0...0.5,
-                                step: 0.01,
-                                label: "Защита безгласных",
-                                format: "%.2f"
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Радиус фильтра: \(viewModel.filterRadius)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Slider(
+                                value: Binding(
+                                    get: { Double(viewModel.filterRadius) },
+                                    set: { viewModel.filterRadius = Int($0) }
+                                ),
+                                in: 0...7,
+                                step: 1
                             )
                         }
 
-                        Divider()
-
-                        // Voice sample
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Образец голоса (необязательно)")
-                                .font(.headline)
-                            Text("Загрузите референсный аудиофайл для клонирования голоса")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Защита безгласных: \(viewModel.protectVoiceless, specifier: "%.2f")")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            Slider(value: $viewModel.protectVoiceless, in: 0...0.5, step: 0.01)
+                        }
+                    }
 
-                            HStack {
-                                if let url = viewModel.voiceSampleURL {
-                                    Label(url.lastPathComponent, systemImage: "waveform")
-                                        .font(.subheadline)
-                                } else {
-                                    Text("Образец не выбран")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
+                    Section("Образец голоса (необязательно)") {
+                        Text("Загрузите референсный аудиофайл для клонирования голоса")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
 
-                                Spacer()
+                        HStack {
+                            if let url = viewModel.voiceSampleURL {
+                                Label(url.lastPathComponent, systemImage: "waveform")
+                                    .font(.subheadline)
+                            } else {
+                                Text("Образец не выбран")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
 
-                                GlassButton(title: "Выбрать", icon: "waveform.badge.plus") {
-                                    viewModel.browseVoiceSample()
-                                }
+                            Spacer()
+
+                            Button {
+                                viewModel.browseVoiceSample()
+                            } label: {
+                                Label("Выбрать", systemImage: "waveform.badge.plus")
                             }
                         }
                     }
                 }
+                .formStyle(.grouped)
 
                 // Progress
                 if viewModel.isConverting {
-                    GlassProgressBar(
-                        progress: viewModel.progress,
-                        label: "Конвертация аудио..."
-                    )
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("Конвертация аудио...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(Int(viewModel.progress * 100))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                        }
+                        ProgressView(value: viewModel.progress)
+                    }
                 }
 
                 if let error = viewModel.errorMessage {

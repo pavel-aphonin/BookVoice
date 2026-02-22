@@ -42,10 +42,10 @@ final class ModelSettingsViewModel {
                 apiURL: apiURL,
                 apiPort: apiPort
             )
-            connectionTestResult = "Connected. Found \(models.count) models: \(models.joined(separator: ", "))"
+            connectionTestResult = "Подключено. Найдено моделей: \(models.count) — \(models.joined(separator: ", "))"
             connectionTestSuccess = true
         } catch {
-            connectionTestResult = "Connection failed: \(error.localizedDescription)"
+            connectionTestResult = "Ошибка подключения: \(error.localizedDescription)"
             connectionTestSuccess = false
         }
 

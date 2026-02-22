@@ -28,11 +28,6 @@ enum AppConstants: Sendable {
     static let maxPreviewSegments = 5
 
     // UI
-    static let glassCornerRadius: CGFloat = 16
-    static let glassOpacity: Double = 0.85
-    static let glassStrokeOpacity: Double = 0.2
-    static let glassStrokeWidth: CGFloat = 0.5
-    static let cardCornerRadius: CGFloat = 12
     static let animationDuration: Double = 0.3
 
     // Window

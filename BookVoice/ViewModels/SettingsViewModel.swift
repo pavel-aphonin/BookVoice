@@ -61,7 +61,7 @@ final class SettingsViewModel {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.message = "Select model storage directory"
+        panel.message = "Выберите папку для хранения моделей"
 
         if panel.runModal() == .OK, let url = panel.url {
             modelDirectoryPath = url.path

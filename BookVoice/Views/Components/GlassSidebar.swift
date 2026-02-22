@@ -55,9 +55,9 @@ struct GlassSidebar: View {
 #Preview {
     GlassSidebar(
         items: [
-            GlassSidebarItem(id: "general", title: "General", icon: "gear"),
-            GlassSidebarItem(id: "api", title: "API Keys", icon: "key"),
-            GlassSidebarItem(id: "models", title: "Models", icon: "cpu"),
+            GlassSidebarItem(id: "general", title: "Основные", icon: "gear"),
+            GlassSidebarItem(id: "api", title: "API-ключи", icon: "key"),
+            GlassSidebarItem(id: "models", title: "Модели", icon: "cpu"),
         ],
         selectedId: .constant("general")
     )

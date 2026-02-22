@@ -17,7 +17,7 @@ struct TextUploadStepView: View {
                     .font(.title2.bold())
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                GlassDropZone(
+                DropZone(
                     allowedTypes: [.plainText, .epub],
                     label: "Перетащите файл .txt или .epub сюда",
                     icon: "doc.text",
@@ -30,7 +30,7 @@ struct TextUploadStepView: View {
                 .frame(minHeight: 160)
 
                 if let fileName = viewModel.fileName {
-                    GlassPanel(padding: 12) {
+                    GroupBox {
                         HStack {
                             Image(systemName: "doc.fill")
                                 .foregroundStyle(.tint)
@@ -47,17 +47,15 @@ struct TextUploadStepView: View {
                     }
                 }
 
-                GlassPanel(padding: 16) {
+                GroupBox("Сегментация") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Сегментация")
-                            .font(.headline)
-
-                        Picker("Strategy", selection: $viewModel.strategy) {
+                        Picker("Стратегия", selection: $viewModel.strategy) {
                             ForEach(SegmentationStrategy.allCases, id: \.self) { strategy in
                                 Text(strategy.displayName).tag(strategy)
                             }
                         }
                         .pickerStyle(.segmented)
+                        .labelsHidden()
                         .onChange(of: viewModel.strategy) {
                             Task { await viewModel.segmentText() }
                         }
@@ -115,32 +113,23 @@ struct TextUploadStepView: View {
                     )
                     Spacer()
                 } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            ForEach(
-                                Array(viewModel.previewSegments.enumerated()),
-                                id: \.offset
-                            ) { index, segment in
-                                GlassPanel(padding: 12) {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Сегмент \(index + 1)")
-                                            .font(.caption.bold())
-                                            .foregroundStyle(.secondary)
-                                        Text(segment)
-                                            .font(.body)
-                                            .lineLimit(6)
-                                    }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-
-                            if viewModel.totalSegmentCount > AppConstants.maxPreviewSegments {
-                                Text("... и ещё \(viewModel.totalSegmentCount - AppConstants.maxPreviewSegments) сегментов")
-                                    .foregroundStyle(.secondary)
-                                    .italic()
-                                    .padding(.top, 4)
-                            }
+                    List(Array(viewModel.previewSegments.enumerated()), id: \.offset) { index, segment in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Сегмент \(index + 1)")
+                                .font(.caption.bold())
+                                .foregroundStyle(.secondary)
+                            Text(segment)
+                                .font(.body)
+                                .lineLimit(6)
                         }
+                    }
+                    .listStyle(.inset(alternatesRowBackgrounds: true))
+
+                    if viewModel.totalSegmentCount > AppConstants.maxPreviewSegments {
+                        Text("... и ещё \(viewModel.totalSegmentCount - AppConstants.maxPreviewSegments) сегментов")
+                            .foregroundStyle(.secondary)
+                            .italic()
+                            .padding(.top, 4)
                     }
                 }
             }

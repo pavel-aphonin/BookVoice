@@ -43,7 +43,7 @@ final class PostProcessingViewModel {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.image]
-        panel.message = "Select a cover image"
+        panel.message = "Выберите обложку"
 
         if panel.runModal() == .OK, let url = panel.url {
             coverImageData = try? Data(contentsOf: url)
@@ -86,7 +86,7 @@ final class PostProcessingViewModel {
 
             outputURL = result
         } catch {
-            errorMessage = "Export failed: \(error.localizedDescription)"
+            errorMessage = "Ошибка экспорта: \(error.localizedDescription)"
         }
 
         isExporting = false

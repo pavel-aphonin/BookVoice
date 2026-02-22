@@ -1,12 +1,12 @@
 //
-//  GlassDropZone.swift
+//  DropZone.swift
 //  BookVoice
 //
 
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct GlassDropZone: View {
+struct DropZone: View {
     var allowedTypes: [UTType]
     var label: String
     var icon: String
@@ -17,10 +17,14 @@ struct GlassDropZone: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: AppConstants.glassCornerRadius)
+            RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(
                     isTargeted ? Color.accentColor : Color.secondary.opacity(0.3),
                     style: StrokeStyle(lineWidth: 2, dash: [8, 4])
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isTargeted ? Color.accentColor.opacity(0.05) : .clear)
                 )
 
             if isLoading {
@@ -42,10 +46,6 @@ struct GlassDropZone: View {
                 }
             }
         }
-        .glassEffect(
-            isTargeted ? .regular.tint(.accentColor) : .regular,
-            in: RoundedRectangle(cornerRadius: AppConstants.glassCornerRadius)
-        )
         .scaleEffect(isTargeted ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isTargeted)
         .onDrop(of: allowedTypes, isTargeted: $isTargeted) { providers in
@@ -92,7 +92,7 @@ struct GlassDropZone: View {
 }
 
 #Preview {
-    GlassDropZone(
+    DropZone(
         allowedTypes: [.plainText],
         label: "Перетащите файл .txt или .epub сюда",
         icon: "doc.text",
