@@ -16,7 +16,7 @@ enum TTSProvider: String, Codable, CaseIterable {
         case .silero: "Silero TTS"
         case .elevenLabs: "ElevenLabs"
         case .kokoro: "Kokoro TTS"
-        case .custom: "Custom API"
+        case .custom: "Свой API"
         }
     }
 

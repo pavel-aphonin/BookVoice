@@ -13,13 +13,13 @@ struct TextUploadStepView: View {
         HSplitView {
             // Left: Drop zone and controls
             VStack(spacing: 16) {
-                Text("Load Text")
+                Text("Загрузка текста")
                     .font(.title2.bold())
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 GlassDropZone(
                     allowedTypes: [.plainText, .epub],
-                    label: "Drop .txt or .epub file here",
+                    label: "Перетащите файл .txt или .epub сюда",
                     icon: "doc.text",
                     isLoading: viewModel.isLoading,
                     onDrop: { urls in
@@ -37,10 +37,10 @@ struct TextUploadStepView: View {
                             Text(fileName)
                                 .font(.headline)
                             Spacer()
-                            Text("\(viewModel.characterCount) chars")
+                            Text("\(viewModel.characterCount) символов")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Text("\(viewModel.wordCount) words")
+                            Text("\(viewModel.wordCount) слов")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -49,7 +49,7 @@ struct TextUploadStepView: View {
 
                 GlassPanel(padding: 16) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Segmentation")
+                        Text("Сегментация")
                             .font(.headline)
 
                         Picker("Strategy", selection: $viewModel.strategy) {
@@ -64,7 +64,7 @@ struct TextUploadStepView: View {
 
                         if viewModel.strategy == .fixedLength {
                             HStack {
-                                Text("Words per segment:")
+                                Text("Слов в сегменте:")
                                     .font(.subheadline)
                                 TextField(
                                     "",
@@ -81,7 +81,7 @@ struct TextUploadStepView: View {
 
                         if viewModel.totalSegmentCount > 0 {
                             Label(
-                                "\(viewModel.totalSegmentCount) segments",
+                                "\(viewModel.totalSegmentCount) сегментов",
                                 systemImage: "text.line.first.and.arrowtriangle.forward"
                             )
                             .font(.subheadline)
@@ -103,15 +103,15 @@ struct TextUploadStepView: View {
 
             // Right: Text preview
             VStack(alignment: .leading, spacing: 12) {
-                Text("Preview")
+                Text("Предпросмотр")
                     .font(.title2.bold())
 
                 if viewModel.rawText.isEmpty {
                     Spacer()
                     ContentUnavailableView(
-                        "No Text Loaded",
+                        "Текст не загружен",
                         systemImage: "text.page",
-                        description: Text("Drop a file to see a preview.")
+                        description: Text("Перетащите файл для предпросмотра.")
                     )
                     Spacer()
                 } else {
@@ -123,7 +123,7 @@ struct TextUploadStepView: View {
                             ) { index, segment in
                                 GlassPanel(padding: 12) {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text("Segment \(index + 1)")
+                                        Text("Сегмент \(index + 1)")
                                             .font(.caption.bold())
                                             .foregroundStyle(.secondary)
                                         Text(segment)
@@ -135,7 +135,7 @@ struct TextUploadStepView: View {
                             }
 
                             if viewModel.totalSegmentCount > AppConstants.maxPreviewSegments {
-                                Text("... and \(viewModel.totalSegmentCount - AppConstants.maxPreviewSegments) more segments")
+                                Text("... и ещё \(viewModel.totalSegmentCount - AppConstants.maxPreviewSegments) сегментов")
                                     .foregroundStyle(.secondary)
                                     .italic()
                                     .padding(.top, 4)

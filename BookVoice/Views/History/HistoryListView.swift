@@ -25,11 +25,11 @@ struct HistoryListView: View {
                 Button {
                     onBack()
                 } label: {
-                    Label("Back", systemImage: "chevron.left")
+                    Label("Назад", systemImage: "chevron.left")
                 }
                 .buttonStyle(.plain)
 
-                Text("All Projects")
+                Text("Все проекты")
                     .font(.title2.bold())
 
                 Spacer()
@@ -38,19 +38,16 @@ struct HistoryListView: View {
                 HStack {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                    TextField("Search projects...", text: $viewModel.searchText)
+                    TextField("Поиск проектов...", text: $viewModel.searchText)
                         .textFieldStyle(.plain)
                 }
                 .padding(8)
-                .background {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.ultraThinMaterial)
-                }
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                 .frame(maxWidth: 250)
 
                 // Status filter
                 Picker("Status", selection: $viewModel.selectedStatus) {
-                    Text("All").tag(nil as ProjectStatus?)
+                    Text("Все").tag(nil as ProjectStatus?)
                     ForEach(ProjectStatus.allCases, id: \.self) { status in
                         Text(status.displayName).tag(status as ProjectStatus?)
                     }
@@ -68,9 +65,9 @@ struct HistoryListView: View {
                 Spacer()
                 if allProjects.isEmpty {
                     ContentUnavailableView(
-                        "No Projects",
+                        "Нет проектов",
                         systemImage: "waveform",
-                        description: Text("Create your first voiceover project.")
+                        description: Text("Создайте свой первый проект озвучки.")
                     )
                 } else {
                     ContentUnavailableView.search(text: viewModel.searchText)
@@ -85,9 +82,9 @@ struct HistoryListView: View {
                             }
                             .onTapGesture { onOpenProject(project) }
                             .contextMenu {
-                                Button("Open") { onOpenProject(project) }
+                                Button("Открыть") { onOpenProject(project) }
                                 Divider()
-                                Button("Delete", role: .destructive) {
+                                Button("Удалить", role: .destructive) {
                                     projectToDelete = project
                                     showDeleteAlert = true
                                 }
@@ -98,17 +95,16 @@ struct HistoryListView: View {
                 }
             }
         }
-        .background(.ultraThinMaterial)
-        .alert("Delete Project?", isPresented: $showDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
+        .alert("Удалить проект?", isPresented: $showDeleteAlert) {
+            Button("Отмена", role: .cancel) {}
+            Button("Удалить", role: .destructive) {
                 if let project = projectToDelete {
                     modelContext.delete(project)
                 }
             }
         } message: {
             if let project = projectToDelete {
-                Text("Are you sure you want to delete \"\(project.title)\"?")
+                Text("Вы уверены, что хотите удалить \"\(project.title)\"?")
             }
         }
     }

@@ -10,14 +10,14 @@ struct ModelSettingsStepView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Model Settings")
+            Text("Настройки модели")
                 .font(.title2.bold())
 
             GlassPanel(padding: 20) {
                 VStack(alignment: .leading, spacing: 16) {
                     // Provider selection
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("TTS Provider")
+                        Text("TTS-провайдер")
                             .font(.headline)
                         Picker("Provider", selection: $viewModel.selectedProvider) {
                             ForEach(TTSProvider.allCases, id: \.self) { provider in
@@ -49,9 +49,9 @@ struct ModelSettingsStepView: View {
 
                     // System prompt
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("System Prompt")
+                        Text("Системный промпт")
                             .font(.headline)
-                        Text("Custom instructions for the text processing model")
+                        Text("Пользовательские инструкции для модели обработки текста")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -59,14 +59,7 @@ struct ModelSettingsStepView: View {
                             .font(.body)
                             .frame(minHeight: 100)
                             .padding(8)
-                            .background {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.ultraThinMaterial)
-                            }
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(Color.glassStroke, lineWidth: AppConstants.glassStrokeWidth)
-                            }
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                     }
 
                     Divider()
@@ -74,7 +67,7 @@ struct ModelSettingsStepView: View {
                     // Test connection
                     HStack {
                         GlassButton(
-                            title: viewModel.isTestingConnection ? "Testing..." : "Test Connection",
+                            title: viewModel.isTestingConnection ? "Проверка..." : "Проверить подключение",
                             icon: "network"
                         ) {
                             Task { await viewModel.testConnection() }

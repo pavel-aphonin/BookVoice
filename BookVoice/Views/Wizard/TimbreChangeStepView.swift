@@ -11,10 +11,10 @@ struct TimbreChangeStepView: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack {
-                Text("Timbre Change (RVC)")
+                Text("Изменение тембра (RVC)")
                     .font(.title2.bold())
                 Spacer()
-                Toggle("Enable RVC", isOn: $viewModel.isEnabled)
+                Toggle("Включить RVC", isOn: $viewModel.isEnabled)
                     .toggleStyle(.switch)
             }
 
@@ -23,7 +23,7 @@ struct TimbreChangeStepView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         // Model selection
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("RVC Model")
+                            Text("Модель RVC")
                                 .font(.headline)
 
                             HStack {
@@ -33,7 +33,7 @@ struct TimbreChangeStepView: View {
                                 } else {
                                     Picker("Model", selection: $viewModel.modelPath) {
                                         if viewModel.availableModels.isEmpty {
-                                            Text("No models available").tag("")
+                                            Text("Нет доступных моделей").tag("")
                                         }
                                         ForEach(viewModel.availableModels, id: \.self) { model in
                                             Text(model).tag(model)
@@ -42,7 +42,7 @@ struct TimbreChangeStepView: View {
                                     .labelsHidden()
                                 }
 
-                                GlassButton(title: "Browse", icon: "folder") {
+                                GlassButton(title: "Обзор", icon: "folder") {
                                     viewModel.browseModel()
                                 }
                             }
@@ -52,27 +52,27 @@ struct TimbreChangeStepView: View {
 
                         // Parameters
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Parameters")
+                            Text("Параметры")
                                 .font(.headline)
 
                             GlassSlider(
                                 value: $viewModel.indexRate,
                                 range: 0...1,
                                 step: 0.05,
-                                label: "Index Rate"
+                                label: "Индекс"
                             )
 
                             GlassIntSlider(
                                 value: $viewModel.filterRadius,
                                 range: 0...7,
-                                label: "Filter Radius"
+                                label: "Радиус фильтра"
                             )
 
                             GlassSlider(
                                 value: $viewModel.protectVoiceless,
                                 range: 0...0.5,
                                 step: 0.01,
-                                label: "Protect Voiceless",
+                                label: "Защита безгласных",
                                 format: "%.2f"
                             )
                         }
@@ -81,9 +81,9 @@ struct TimbreChangeStepView: View {
 
                         // Voice sample
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Voice Sample (Optional)")
+                            Text("Образец голоса (необязательно)")
                                 .font(.headline)
-                            Text("Upload a reference audio file for voice cloning")
+                            Text("Загрузите референсный аудиофайл для клонирования голоса")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
@@ -92,14 +92,14 @@ struct TimbreChangeStepView: View {
                                     Label(url.lastPathComponent, systemImage: "waveform")
                                         .font(.subheadline)
                                 } else {
-                                    Text("No sample selected")
+                                    Text("Образец не выбран")
                                         .font(.subheadline)
                                         .foregroundStyle(.secondary)
                                 }
 
                                 Spacer()
 
-                                GlassButton(title: "Select", icon: "waveform.badge.plus") {
+                                GlassButton(title: "Выбрать", icon: "waveform.badge.plus") {
                                     viewModel.browseVoiceSample()
                                 }
                             }
@@ -111,7 +111,7 @@ struct TimbreChangeStepView: View {
                 if viewModel.isConverting {
                     GlassProgressBar(
                         progress: viewModel.progress,
-                        label: "Converting audio..."
+                        label: "Конвертация аудио..."
                     )
                 }
 
@@ -123,9 +123,9 @@ struct TimbreChangeStepView: View {
             } else {
                 Spacer()
                 ContentUnavailableView(
-                    "RVC Disabled",
+                    "RVC отключён",
                     systemImage: "waveform.slash",
-                    description: Text("Enable RVC to change the voice timbre of your audiobook.")
+                    description: Text("Включите RVC, чтобы изменить тембр голоса аудиокниги.")
                 )
                 Spacer()
             }

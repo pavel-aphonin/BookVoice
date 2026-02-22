@@ -15,7 +15,7 @@ struct VoiceoverStepView: View {
                 VStack(spacing: 16) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("TTS Model")
+                            Text("TTS-модель")
                                 .font(.headline)
                             if viewModel.isLoadingModels {
                                 ProgressView()
@@ -23,7 +23,7 @@ struct VoiceoverStepView: View {
                             } else {
                                 Picker("Model", selection: $viewModel.selectedModel) {
                                     if viewModel.availableModels.isEmpty {
-                                        Text("No models available").tag("")
+                                        Text("Нет доступных моделей").tag("")
                                     }
                                     ForEach(viewModel.availableModels, id: \.self) { model in
                                         Text(model).tag(model)
@@ -37,7 +37,7 @@ struct VoiceoverStepView: View {
                         Spacer()
 
                         GlassButton(
-                            title: viewModel.isSynthesizing ? "Cancel" : "Synthesize All",
+                            title: viewModel.isSynthesizing ? "Отмена" : "Озвучить всё",
                             icon: viewModel.isSynthesizing ? "stop.fill" : "waveform"
                         ) {
                             if viewModel.isSynthesizing {
@@ -54,20 +54,20 @@ struct VoiceoverStepView: View {
                             value: $viewModel.speed,
                             range: 0.5...2.0,
                             step: 0.1,
-                            label: "Speed"
+                            label: "Скорость"
                         )
 
                         GlassSlider(
                             value: $viewModel.pitch,
                             range: 0.5...2.0,
                             step: 0.1,
-                            label: "Pitch"
+                            label: "Высота тона"
                         )
 
                         GlassTextField(
-                            label: "Emotion",
+                            label: "Эмоция",
                             text: $viewModel.emotion,
-                            prompt: "e.g., neutral, happy"
+                            prompt: "напр., нейтральная, радостная"
                         )
                         .frame(maxWidth: 150)
                     }
@@ -78,7 +78,7 @@ struct VoiceoverStepView: View {
             if viewModel.isSynthesizing {
                 GlassProgressBar(
                     progress: viewModel.progress,
-                    label: "Synthesizing segment \(viewModel.currentSegmentIndex + 1) of \(viewModel.totalSegments)..."
+                    label: "Синтез сегмента \(viewModel.currentSegmentIndex + 1) из \(viewModel.totalSegments)..."
                 )
             }
 
@@ -93,9 +93,9 @@ struct VoiceoverStepView: View {
                 LazyVStack(spacing: 8) {
                     if viewModel.segmentStates.isEmpty {
                         ContentUnavailableView(
-                            "No Segments",
+                            "Нет сегментов",
                             systemImage: "text.line.first.and.arrowtriangle.forward",
-                            description: Text("Load text in the previous step first.")
+                            description: Text("Сначала загрузите текст на предыдущем шаге.")
                         )
                     } else {
                         ForEach(viewModel.segmentStates) { state in
@@ -105,7 +105,7 @@ struct VoiceoverStepView: View {
                                         .foregroundStyle(state.statusColor)
                                         .frame(width: 20)
 
-                                    Text("Segment \(state.index + 1)")
+                                    Text("Сегмент \(state.index + 1)")
                                         .font(.subheadline.bold())
                                         .frame(width: 80, alignment: .leading)
 

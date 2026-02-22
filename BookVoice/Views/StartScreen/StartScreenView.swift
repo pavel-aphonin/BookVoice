@@ -30,11 +30,11 @@ struct StartScreenView: View {
                 Text("BookVoice")
                     .font(.largeTitle.bold())
 
-                Text("Transform books into audiobooks")
+                Text("Превратите книги в аудиокниги")
                     .font(.title3)
                     .foregroundStyle(.secondary)
 
-                GlassButton(title: "New Voiceover", icon: "plus.circle.fill") {
+                GlassButton(title: "Новая озвучка", icon: "plus.circle.fill") {
                     let project = viewModel.createNewProject(in: modelContext)
                     onNewProject(project)
                 }
@@ -49,11 +49,11 @@ struct StartScreenView: View {
             // Right: Recent projects
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Text("Recent Projects")
+                    Text("Недавние проекты")
                         .font(.title2.bold())
                     Spacer()
                     if !recentProjects.isEmpty {
-                        Button("See All") { onShowHistory() }
+                        Button("Все проекты") { onShowHistory() }
                             .buttonStyle(.plain)
                             .foregroundStyle(.tint)
                     }
@@ -62,9 +62,9 @@ struct StartScreenView: View {
                 if recentProjects.isEmpty {
                     Spacer()
                     ContentUnavailableView(
-                        "No Projects Yet",
+                        "Проектов пока нет",
                         systemImage: "waveform",
-                        description: Text("Create your first voiceover to get started.")
+                        description: Text("Создайте первую озвучку, чтобы начать.")
                     )
                     Spacer()
                 } else {
@@ -76,9 +76,9 @@ struct StartScreenView: View {
                                 }
                                 .onTapGesture { onOpenProject(project) }
                                 .contextMenu {
-                                    Button("Open") { onOpenProject(project) }
+                                    Button("Открыть") { onOpenProject(project) }
                                     Divider()
-                                    Button("Delete", role: .destructive) {
+                                    Button("Удалить", role: .destructive) {
                                         viewModel.confirmDelete(project)
                                     }
                                 }
@@ -90,24 +90,23 @@ struct StartScreenView: View {
             .frame(maxWidth: .infinity)
             .padding(24)
         }
-        .background(.ultraThinMaterial)
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 } label: {
-                    Label("Settings", systemImage: "gear")
+                    Label("Настройки", systemImage: "gear")
                 }
             }
         }
-        .alert("Delete Project?", isPresented: $viewModel.showDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
+        .alert("Удалить проект?", isPresented: $viewModel.showDeleteConfirmation) {
+            Button("Отмена", role: .cancel) {}
+            Button("Удалить", role: .destructive) {
                 viewModel.deleteProject(in: modelContext)
             }
         } message: {
             if let project = viewModel.projectToDelete {
-                Text("Are you sure you want to delete \"\(project.title)\"? This action cannot be undone.")
+                Text("Вы уверены, что хотите удалить \"\(project.title)\"? Это действие нельзя отменить.")
             }
         }
     }

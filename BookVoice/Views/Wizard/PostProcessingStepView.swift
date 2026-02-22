@@ -10,7 +10,7 @@ struct PostProcessingStepView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Text("Post-Processing & Export")
+            Text("Обработка и экспорт")
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -19,7 +19,7 @@ struct PostProcessingStepView: View {
                 VStack(spacing: 16) {
                     GlassPanel(padding: 16) {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Output Format")
+                            Text("Формат вывода")
                                 .font(.headline)
 
                             Picker("Format", selection: $viewModel.outputFormat) {
@@ -33,30 +33,30 @@ struct PostProcessingStepView: View {
 
                     GlassPanel(padding: 16) {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Metadata")
+                            Text("Метаданные")
                                 .font(.headline)
 
                             GlassTextField(
-                                label: "Title",
+                                label: "Название",
                                 text: $viewModel.metadataTitle,
-                                prompt: "Book title"
+                                prompt: "Название книги"
                             )
 
                             GlassTextField(
-                                label: "Artist / Narrator",
+                                label: "Исполнитель / Чтец",
                                 text: $viewModel.metadataArtist,
-                                prompt: "Artist name"
+                                prompt: "Имя исполнителя"
                             )
 
                             HStack(spacing: 12) {
                                 GlassTextField(
-                                    label: "Album",
+                                    label: "Альбом",
                                     text: $viewModel.metadataAlbum,
-                                    prompt: "Album name"
+                                    prompt: "Название альбома"
                                 )
 
                                 GlassTextField(
-                                    label: "Year",
+                                    label: "Год",
                                     text: $viewModel.metadataYear,
                                     prompt: "2026"
                                 )
@@ -70,7 +70,7 @@ struct PostProcessingStepView: View {
                 VStack(spacing: 16) {
                     GlassPanel(padding: 16) {
                         VStack(spacing: 12) {
-                            Text("Cover Image")
+                            Text("Обложка")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -90,14 +90,14 @@ struct PostProcessingStepView: View {
                                             Image(systemName: "photo")
                                                 .font(.title)
                                                 .foregroundStyle(.secondary)
-                                            Text("No cover image")
+                                            Text("Нет обложки")
                                                 .font(.caption)
                                                 .foregroundStyle(.tertiary)
                                         }
                                     }
                             }
 
-                            GlassButton(title: "Select Image", icon: "photo.badge.plus") {
+                            GlassButton(title: "Выбрать изображение", icon: "photo.badge.plus") {
                                 viewModel.selectCoverImage()
                             }
                         }
@@ -107,7 +107,7 @@ struct PostProcessingStepView: View {
                     if viewModel.isExporting {
                         GlassProgressBar(
                             progress: viewModel.progress,
-                            label: "Exporting..."
+                            label: "Экспорт..."
                         )
                     }
 
@@ -116,10 +116,10 @@ struct PostProcessingStepView: View {
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(.green)
-                                Text("Exported successfully")
+                                Text("Экспорт завершён")
                                     .font(.subheadline)
                                 Spacer()
-                                GlassButton(title: "Reveal in Finder", icon: "folder") {
+                                GlassButton(title: "Показать в Finder", icon: "folder") {
                                     viewModel.revealInFinder()
                                 }
                             }

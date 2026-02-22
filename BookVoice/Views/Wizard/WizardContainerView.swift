@@ -56,7 +56,7 @@ struct WizardContainerView: View {
 
             // Bottom: Navigation buttons
             HStack {
-                Button("Cancel") {
+                Button("Отмена") {
                     viewModel.saveCurrentStepToProject()
                     onDismiss()
                 }
@@ -65,13 +65,13 @@ struct WizardContainerView: View {
                 Spacer()
 
                 if viewModel.canGoBack {
-                    GlassButton(title: "Back", icon: "chevron.left") {
+                    GlassButton(title: "Назад", icon: "chevron.left") {
                         viewModel.goToPreviousStep()
                     }
                 }
 
                 if viewModel.isLastStep {
-                    GlassButton(title: "Export", icon: "square.and.arrow.up.fill") {
+                    GlassButton(title: "Экспорт", icon: "square.and.arrow.up.fill") {
                         viewModel.saveCurrentStepToProject()
                         Task {
                             let audioFiles = viewModel.voiceover.segmentStates.compactMap { $0.audioURL }
@@ -80,7 +80,7 @@ struct WizardContainerView: View {
                     }
                     .disabled(!viewModel.postProcessing.canExport)
                 } else {
-                    GlassButton(title: "Next", icon: "chevron.right") {
+                    GlassButton(title: "Далее", icon: "chevron.right") {
                         viewModel.goToNextStep()
                     }
                     .disabled(!viewModel.canGoForward)
@@ -88,7 +88,6 @@ struct WizardContainerView: View {
             }
             .padding(16)
         }
-        .background(.ultraThinMaterial)
     }
 }
 

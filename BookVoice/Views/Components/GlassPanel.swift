@@ -23,15 +23,7 @@ struct GlassPanel<Content: View>: View {
     var body: some View {
         content()
             .padding(padding)
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(.ultraThinMaterial)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(Color.glassStroke, lineWidth: AppConstants.glassStrokeWidth)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: cornerRadius))
     }
 }
 
@@ -40,17 +32,10 @@ struct GlassPanel<Content: View>: View {
         VStack {
             Text("Glass Panel")
                 .font(.title)
-            Text("With blur effect")
+            Text("С эффектом Liquid Glass")
                 .foregroundStyle(.secondary)
         }
     }
     .frame(width: 300, height: 200)
     .padding()
-    .background(
-        LinearGradient(
-            colors: [.blue, .purple],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    )
 }
