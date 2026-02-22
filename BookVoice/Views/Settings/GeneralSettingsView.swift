@@ -11,15 +11,15 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Defaults") {
+            Section("По умолчанию") {
                 if let vm = viewModel {
-                    Picker("Default TTS Provider", selection: Bindable(vm).defaultProvider) {
+                    Picker("TTS-провайдер по умолчанию", selection: Bindable(vm).defaultProvider) {
                         ForEach(TTSProvider.allCases, id: \.self) { provider in
                             Text(provider.displayName).tag(provider)
                         }
                     }
 
-                    Picker("Default Segmentation", selection: Bindable(vm).defaultSegmentation) {
+                    Picker("Сегментация по умолчанию", selection: Bindable(vm).defaultSegmentation) {
                         ForEach(SegmentationStrategy.allCases, id: \.self) { strategy in
                             Text(strategy.displayName).tag(strategy)
                         }
@@ -27,8 +27,8 @@ struct GeneralSettingsView: View {
                 }
             }
 
-            Section("Logs") {
-                Button("Open Logs Folder") {
+            Section("Журнал") {
+                Button("Открыть папку логов") {
                     viewModel?.openLogsFolder()
                 }
             }

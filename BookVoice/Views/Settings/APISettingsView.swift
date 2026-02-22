@@ -13,16 +13,16 @@ struct APISettingsView: View {
     var body: some View {
         Form {
             Section("ElevenLabs") {
-                SecureField("API Key", text: $elevenLabsAPIKey, prompt: Text("Enter your ElevenLabs API key"))
-                Text("Get your API key from elevenlabs.io")
+                SecureField("API-ключ", text: $elevenLabsAPIKey, prompt: Text("Введите API-ключ ElevenLabs"))
+                Text("Получите API-ключ на elevenlabs.io")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Section("Custom TTS Server") {
-                TextField("Endpoint URL", text: $customAPIEndpoint, prompt: Text("http://localhost"))
+            Section("Пользовательский TTS-сервер") {
+                TextField("URL эндпоинта", text: $customAPIEndpoint, prompt: Text("http://localhost"))
                 TextField(
-                    "Port",
+                    "Порт",
                     value: $customAPIPort,
                     format: .number
                 )

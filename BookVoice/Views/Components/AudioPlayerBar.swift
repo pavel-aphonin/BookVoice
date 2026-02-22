@@ -63,12 +63,7 @@ struct AudioPlayerBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.glassStroke)
-                .frame(height: AppConstants.glassStrokeWidth)
-        }
+        .glassEffect(.regular, in: .rect)
     }
 
     private func formatTime(_ seconds: Double) -> String {
@@ -82,7 +77,7 @@ struct AudioPlayerBar: View {
     VStack {
         Spacer()
         AudioPlayerBar(
-            title: "Segment 3",
+            title: "Сегмент 3",
             isPlaying: true,
             currentTime: 45,
             duration: 120,

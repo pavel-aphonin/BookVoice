@@ -12,7 +12,7 @@ struct ModelSettingsView: View {
     var body: some View {
         Form {
             if let vm = viewModel {
-                Section("Model Directory") {
+                Section("Папка моделей") {
                     HStack {
                         Text(vm.modelDirectoryPath)
                             .font(.caption)
@@ -22,17 +22,17 @@ struct ModelSettingsView: View {
 
                         Spacer()
 
-                        Button("Browse...") {
+                        Button("Обзор...") {
                             vm.browseModelDirectory()
                         }
                     }
                 }
 
-                Section("Installed Models") {
+                Section("Установленные модели") {
                     if vm.isLoadingModels {
-                        ProgressView("Loading models...")
+                        ProgressView("Загрузка моделей...")
                     } else if vm.models.isEmpty {
-                        Text("No models found in the selected directory.")
+                        Text("Модели не найдены в выбранной папке.")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(vm.models, id: \.name) { model in
@@ -54,7 +54,7 @@ struct ModelSettingsView: View {
                         }
                     }
 
-                    Button("Refresh") {
+                    Button("Обновить") {
                         Task { await vm.loadModels() }
                     }
                 }

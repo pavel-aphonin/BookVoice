@@ -13,19 +13,19 @@ enum SegmentationStrategy: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .bySentence: "By Sentence"
-        case .byParagraph: "By Paragraph"
-        case .byChapter: "By Chapter"
-        case .fixedLength: "Fixed Length"
+        case .bySentence: "По предложениям"
+        case .byParagraph: "По абзацам"
+        case .byChapter: "По главам"
+        case .fixedLength: "Фиксированная длина"
         }
     }
 
     var description: String {
         switch self {
-        case .bySentence: "Split text at sentence boundaries"
-        case .byParagraph: "Split text at paragraph breaks"
-        case .byChapter: "Split text at chapter headings"
-        case .fixedLength: "Split into segments of fixed word count"
+        case .bySentence: "Разделить текст по границам предложений"
+        case .byParagraph: "Разделить текст по абзацам"
+        case .byChapter: "Разделить текст по заголовкам глав"
+        case .fixedLength: "Разделить на сегменты фиксированной длины"
         }
     }
 }

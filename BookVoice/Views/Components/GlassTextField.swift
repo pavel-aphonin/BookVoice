@@ -20,14 +20,7 @@ struct GlassTextField: View {
             TextField(prompt, text: $text)
                 .textFieldStyle(.plain)
                 .padding(10)
-                .background {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.ultraThinMaterial)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.glassStroke, lineWidth: AppConstants.glassStrokeWidth)
-                }
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -47,14 +40,7 @@ struct GlassSecureField: View {
             SecureField(prompt, text: $text)
                 .textFieldStyle(.plain)
                 .padding(10)
-                .background {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.ultraThinMaterial)
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.glassStroke, lineWidth: AppConstants.glassStrokeWidth)
-                }
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -78,14 +64,7 @@ struct GlassNumberField: View {
             )
             .textFieldStyle(.plain)
             .padding(10)
-            .background {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(.ultraThinMaterial)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.glassStroke, lineWidth: AppConstants.glassStrokeWidth)
-            }
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
             .onChange(of: value) { _, newValue in
                 value = min(max(newValue, range.lowerBound), range.upperBound)
             }
@@ -95,17 +74,10 @@ struct GlassNumberField: View {
 
 #Preview {
     VStack(spacing: 16) {
-        GlassTextField(label: "API URL", text: .constant("http://localhost"), prompt: "Enter URL")
-        GlassNumberField(label: "Port", value: .constant(8080))
-        GlassSecureField(label: "API Key", text: .constant(""), prompt: "Enter API key")
+        GlassTextField(label: "API URL", text: .constant("http://localhost"), prompt: "Введите URL")
+        GlassNumberField(label: "Порт", value: .constant(8080))
+        GlassSecureField(label: "API-ключ", text: .constant(""), prompt: "Введите API-ключ")
     }
     .frame(width: 300)
     .padding(40)
-    .background(
-        LinearGradient(
-            colors: [.blue, .purple],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    )
 }

@@ -16,13 +16,13 @@ enum ProjectStatus: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .draft: "Draft"
-        case .textLoaded: "Text Loaded"
-        case .synthesizing: "Synthesizing"
-        case .converting: "Converting"
-        case .postProcessing: "Processing"
-        case .completed: "Completed"
-        case .failed: "Failed"
+        case .draft: "Черновик"
+        case .textLoaded: "Текст загружен"
+        case .synthesizing: "Синтез"
+        case .converting: "Конвертация"
+        case .postProcessing: "Обработка"
+        case .completed: "Завершён"
+        case .failed: "Ошибка"
         }
     }
 

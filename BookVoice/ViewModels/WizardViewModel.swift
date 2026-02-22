@@ -21,7 +21,7 @@ final class WizardViewModel {
     // The project being edited
     let project: VoiceoverProject
 
-    let stepTitles = ["Model", "Text", "Voice", "Timbre", "Export"]
+    let stepTitles = ["Модель", "Текст", "Озвучка", "Тембр", "Экспорт"]
 
     var canGoBack: Bool { currentStep > 1 }
 

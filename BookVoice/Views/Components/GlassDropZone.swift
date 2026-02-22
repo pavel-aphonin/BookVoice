@@ -18,11 +18,8 @@ struct GlassDropZone: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: AppConstants.glassCornerRadius)
-                .fill(.ultraThinMaterial)
-
-            RoundedRectangle(cornerRadius: AppConstants.glassCornerRadius)
                 .strokeBorder(
-                    isTargeted ? Color.accentColor : Color.glassStroke,
+                    isTargeted ? Color.accentColor : Color.secondary.opacity(0.3),
                     style: StrokeStyle(lineWidth: 2, dash: [8, 4])
                 )
 
@@ -39,12 +36,16 @@ struct GlassDropZone: View {
                         .font(.headline)
                         .foregroundStyle(.secondary)
 
-                    Text("or click to browse")
+                    Text("или нажмите для выбора")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
         }
+        .glassEffect(
+            isTargeted ? .regular.tint(.accentColor) : .regular,
+            in: RoundedRectangle(cornerRadius: AppConstants.glassCornerRadius)
+        )
         .scaleEffect(isTargeted ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.2), value: isTargeted)
         .onDrop(of: allowedTypes, isTargeted: $isTargeted) { providers in
@@ -93,18 +94,11 @@ struct GlassDropZone: View {
 #Preview {
     GlassDropZone(
         allowedTypes: [.plainText],
-        label: "Drop .txt or .epub file here",
+        label: "Перетащите файл .txt или .epub сюда",
         icon: "doc.text",
         isLoading: false,
         onDrop: { _ in }
     )
     .frame(width: 400, height: 200)
     .padding(40)
-    .background(
-        LinearGradient(
-            colors: [.blue, .purple],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    )
 }

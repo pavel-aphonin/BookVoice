@@ -35,7 +35,7 @@ struct ProjectDetailView: View {
                         Label(project.status.displayName, systemImage: project.status.icon)
                             .foregroundStyle(project.status.color)
 
-                        Text("Created \(project.createdAt, style: .date)")
+                        Text("Создан \(project.createdAt, style: .date)")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -46,16 +46,16 @@ struct ProjectDetailView: View {
                 // Settings summary
                 GlassPanel(padding: 16) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Configuration")
+                        Text("Настройки")
                             .font(.headline)
 
-                        LabeledContent("Provider", value: project.ttsProvider.displayName)
+                        LabeledContent("Провайдер", value: project.ttsProvider.displayName)
                         LabeledContent("API", value: "\(project.apiURL):\(project.apiPort)")
-                        LabeledContent("Segmentation", value: project.segmentationStrategy.displayName)
-                        LabeledContent("Speed", value: String(format: "%.1fx", project.ttsSpeed))
-                        LabeledContent("Format", value: project.outputFormat.displayName)
+                        LabeledContent("Сегментация", value: project.segmentationStrategy.displayName)
+                        LabeledContent("Скорость", value: String(format: "%.1fx", project.ttsSpeed))
+                        LabeledContent("Формат", value: project.outputFormat.displayName)
                         if project.rvcEnabled {
-                            LabeledContent("RVC", value: "Enabled")
+                            LabeledContent("RVC", value: "Включён")
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -65,12 +65,12 @@ struct ProjectDetailView: View {
                 if !project.textSegments.isEmpty {
                     GlassPanel(padding: 16) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Text Segments (\(project.textSegments.count))")
+                            Text("Текстовые сегменты (\(project.textSegments.count))")
                                 .font(.headline)
 
                             ForEach(project.textSegments.sorted(by: { $0.index < $1.index }).prefix(5), id: \.id) { segment in
                                 HStack {
-                                    Text("Segment \(segment.index + 1)")
+                                    Text("Сегмент \(segment.index + 1)")
                                         .font(.caption.bold())
                                     Text(String(segment.text.prefix(60)))
                                         .font(.caption)
@@ -80,7 +80,7 @@ struct ProjectDetailView: View {
                             }
 
                             if project.textSegments.count > 5 {
-                                Text("... and \(project.textSegments.count - 5) more")
+                                Text("... и ещё \(project.textSegments.count - 5)")
                                     .font(.caption)
                                     .foregroundStyle(.tertiary)
                             }

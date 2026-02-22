@@ -10,7 +10,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            Tab("General", systemImage: "gear") {
+            Tab("Основные", systemImage: "gear") {
                 GeneralSettingsView()
                     .environment(services)
             }
@@ -19,7 +19,7 @@ struct SettingsView: View {
                 APISettingsView()
             }
 
-            Tab("Models", systemImage: "cpu") {
+            Tab("Модели", systemImage: "cpu") {
                 ModelSettingsView()
                     .environment(services)
             }
