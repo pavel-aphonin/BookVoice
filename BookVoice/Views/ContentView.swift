@@ -95,7 +95,10 @@ struct ContentView: View {
             }
         }
         .containerBackground(.thickMaterial, for: .window)
-        .toolbar(removing: .title)
+        .background {
+            TrafficLightAutoHide()
+                .allowsHitTesting(false)
+        }
         .frame(
             minWidth: AppConstants.minWindowWidth,
             minHeight: AppConstants.minWindowHeight
