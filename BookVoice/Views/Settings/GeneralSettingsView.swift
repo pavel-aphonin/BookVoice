@@ -34,6 +34,7 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .onAppear {
             if viewModel == nil {
                 viewModel = SettingsViewModel(modelManager: services.modelManager)

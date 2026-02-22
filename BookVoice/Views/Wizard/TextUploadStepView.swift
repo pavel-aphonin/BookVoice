@@ -30,25 +30,26 @@ struct TextUploadStepView: View {
                 .frame(minHeight: 160)
 
                 if let fileName = viewModel.fileName {
-                    GroupBox {
-                        HStack {
-                            Image(systemName: "doc.fill")
-                                .foregroundStyle(.tint)
-                            Text(fileName)
-                                .font(.headline)
-                            Spacer()
-                            Text("\(viewModel.characterCount) символов")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text("\(viewModel.wordCount) слов")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                    HStack {
+                        Image(systemName: "doc.fill")
+                            .foregroundStyle(.tint)
+                        Text(fileName)
+                            .font(.headline)
+                        Spacer()
+                        Text("\(viewModel.characterCount) символов")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("\(viewModel.wordCount) слов")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(12)
                 }
 
-                GroupBox("Сегментация") {
-                    VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Сегментация")
+                        .font(.headline)
+
                         Picker("Стратегия", selection: $viewModel.strategy) {
                             ForEach(SegmentationStrategy.allCases, id: \.self) { strategy in
                                 Text(strategy.displayName).tag(strategy)
@@ -85,7 +86,6 @@ struct TextUploadStepView: View {
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         }
-                    }
                 }
 
                 if let error = viewModel.errorMessage {
@@ -123,7 +123,8 @@ struct TextUploadStepView: View {
                                 .lineLimit(6)
                         }
                     }
-                    .listStyle(.inset(alternatesRowBackgrounds: true))
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
 
                     if viewModel.totalSegmentCount > AppConstants.maxPreviewSegments {
                         Text("... и ещё \(viewModel.totalSegmentCount - AppConstants.maxPreviewSegments) сегментов")

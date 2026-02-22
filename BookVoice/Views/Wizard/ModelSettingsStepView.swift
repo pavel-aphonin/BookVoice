@@ -70,6 +70,7 @@ struct ModelSettingsStepView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 }
 

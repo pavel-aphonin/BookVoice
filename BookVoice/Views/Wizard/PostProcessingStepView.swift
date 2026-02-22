@@ -17,7 +17,9 @@ struct PostProcessingStepView: View {
             HStack(alignment: .top, spacing: 24) {
                 // Left: Format and metadata
                 VStack(spacing: 16) {
-                    GroupBox("Формат вывода") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Формат вывода")
+                            .font(.headline)
                         Picker("Формат", selection: $viewModel.outputFormat) {
                             ForEach(AudioFormat.allCases, id: \.self) { format in
                                 Text(format.displayName).tag(format)
@@ -27,7 +29,9 @@ struct PostProcessingStepView: View {
                         .labelsHidden()
                     }
 
-                    GroupBox("Метаданные") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Метаданные")
+                            .font(.headline)
                         VStack(spacing: 10) {
                             TextField("Название", text: $viewModel.metadataTitle, prompt: Text("Название книги"))
                                 .textFieldStyle(.roundedBorder)
@@ -49,7 +53,9 @@ struct PostProcessingStepView: View {
 
                 // Right: Cover image and actions
                 VStack(spacing: 16) {
-                    GroupBox("Обложка") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Обложка")
+                            .font(.headline)
                         VStack(spacing: 12) {
                             if let data = viewModel.coverImageData,
                                let nsImage = NSImage(data: data) {
@@ -99,20 +105,19 @@ struct PostProcessingStepView: View {
                     }
 
                     if let _ = viewModel.outputURL {
-                        GroupBox {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("Экспорт завершён")
-                                    .font(.subheadline)
-                                Spacer()
-                                Button {
-                                    viewModel.revealInFinder()
-                                } label: {
-                                    Label("Показать в Finder", systemImage: "folder")
-                                }
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("Экспорт завершён")
+                                .font(.subheadline)
+                            Spacer()
+                            Button {
+                                viewModel.revealInFinder()
+                            } label: {
+                                Label("Показать в Finder", systemImage: "folder")
                             }
                         }
+                        .padding(12)
                     }
 
                     if let error = viewModel.errorMessage {
