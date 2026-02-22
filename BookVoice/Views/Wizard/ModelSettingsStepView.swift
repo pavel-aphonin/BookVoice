@@ -9,34 +9,55 @@ struct ModelSettingsStepView: View {
     @Bindable var viewModel: ModelSettingsViewModel
 
     var body: some View {
-        Form {
-            Section("TTS-провайдер") {
-                Picker("Провайдер", selection: $viewModel.selectedProvider) {
-                    ForEach(TTSProvider.allCases, id: \.self) { provider in
-                        Text(provider.displayName).tag(provider)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // TTS Provider
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("TTS-провайдер")
+                        .font(.headline)
+                    Picker("Провайдер", selection: $viewModel.selectedProvider) {
+                        ForEach(TTSProvider.allCases, id: \.self) { provider in
+                            Text(provider.displayName).tag(provider)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+
+                Divider()
+
+                // Connection
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Подключение")
+                        .font(.headline)
+                    HStack(spacing: 12) {
+                        TextField("API URL", text: $viewModel.apiURL, prompt: Text("http://localhost"))
+                            .textFieldStyle(.plain)
+                        TextField("Порт", value: $viewModel.apiPort, format: .number)
+                            .textFieldStyle(.plain)
+                            .frame(width: 80)
                     }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
 
-            Section("Подключение") {
-                TextField("API URL", text: $viewModel.apiURL, prompt: Text("http://localhost"))
-                TextField("Порт", value: $viewModel.apiPort, format: .number)
-                    .frame(width: 100)
-            }
+                Divider()
 
-            Section("Системный промпт") {
-                TextEditor(text: $viewModel.systemPrompt)
-                    .font(.body)
-                    .frame(minHeight: 100)
+                // System prompt
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Системный промпт")
+                        .font(.headline)
+                    TextEditor(text: $viewModel.systemPrompt)
+                        .font(.body)
+                        .frame(minHeight: 100)
+                        .scrollContentBackground(.hidden)
 
-                Text("Пользовательские инструкции для модели обработки текста")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                    Text("Пользовательские инструкции для модели обработки текста")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-            Section {
+                Divider()
+
+                // Connection test
                 HStack {
                     Button {
                         Task { await viewModel.testConnection() }
@@ -60,17 +81,14 @@ struct ModelSettingsStepView: View {
                         .lineLimit(2)
                     }
                 }
-            }
 
-            if let error = viewModel.errorMessage {
-                Section {
+                if let error = viewModel.errorMessage {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.red)
                 }
             }
+            .padding(24)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 }
 

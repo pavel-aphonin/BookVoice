@@ -95,6 +95,7 @@ struct ContentView: View {
             }
         }
         .containerBackground(.thickMaterial, for: .window)
+        .toolbar(removing: .title)
         .frame(
             minWidth: AppConstants.minWindowWidth,
             minHeight: AppConstants.minWindowHeight

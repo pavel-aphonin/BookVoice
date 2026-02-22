@@ -70,7 +70,7 @@ struct TextUploadStepView: View {
                                     value: $viewModel.fixedLength,
                                     format: .number
                                 )
-                                .textFieldStyle(.roundedBorder)
+                                .textFieldStyle(.plain)
                                 .frame(width: 80)
                                 .onChange(of: viewModel.fixedLength) {
                                     Task { await viewModel.segmentText() }

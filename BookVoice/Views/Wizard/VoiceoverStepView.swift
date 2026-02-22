@@ -67,7 +67,7 @@ struct VoiceoverStepView: View {
                     }
 
                     TextField("Эмоция", text: $viewModel.emotion, prompt: Text("напр., нейтральная"))
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
                         .frame(maxWidth: 150)
                 }
             }
