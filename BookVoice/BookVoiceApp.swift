@@ -34,7 +34,6 @@ struct BookVoiceApp: App {
                 .environment(ServiceContainer.shared)
         }
         .modelContainer(sharedModelContainer)
-        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 900, height: 600)
         .commands {
             CommandGroup(replacing: .appInfo) {
