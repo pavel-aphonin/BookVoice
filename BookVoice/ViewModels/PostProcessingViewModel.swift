@@ -69,8 +69,9 @@ final class PostProcessingViewModel {
                 outputURL: saveURL,
                 format: outputFormat,
                 progressHandler: { [weak self] prog in
+                    guard let self else { return }
                     Task { @MainActor in
-                        self?.progress = prog
+                        self.progress = prog
                     }
                 }
             )

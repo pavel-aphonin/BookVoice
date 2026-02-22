@@ -100,8 +100,9 @@ final class TimbreChangeViewModel {
                         filterRadius: filterRadius,
                         protectVoiceless: protectVoiceless,
                         progressHandler: { [weak self] prog in
+                            guard let self else { return }
                             Task { @MainActor in
-                                self?.progress = prog
+                                self.progress = prog
                             }
                         }
                     )

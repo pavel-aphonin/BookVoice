@@ -75,9 +75,9 @@ struct HistoryRowView: View {
 }
 
 #Preview {
-    let project = VoiceoverProject(title: "War and Peace")
+    let project = VoiceoverProject(title: "Война и мир")
     let _ = {
-        project.author = "Leo Tolstoy"
+        project.author = "Лев Толстой"
         project.status = .synthesizing
         project.currentStep = 3
     }()
