@@ -36,11 +36,15 @@ struct BookVoiceApp: App {
         .modelContainer(sharedModelContainer)
         .windowToolbarStyle(.unified)
         .windowStyle(.automatic)
+        .defaultSize(width: 900, height: 600)
 
         Settings {
             SettingsView()
                 .environment(ServiceContainer.shared)
+                .containerBackground(.thickMaterial, for: .window)
         }
         .modelContainer(sharedModelContainer)
+        .windowToolbarStyle(.unified)
+        .windowStyle(.automatic)
     }
 }
