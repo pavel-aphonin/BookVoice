@@ -8,6 +8,9 @@ import SwiftUI
 struct ModelSettingsStepView: View {
     @Bindable var viewModel: ModelSettingsViewModel
 
+    @State private var isShowingProviderGuide = false
+    @State private var isShowingPromptGuide = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -42,9 +45,15 @@ struct ModelSettingsStepView: View {
                 await viewModel.checkLocalPrerequisites()
             }
         }
+        .sheet(isPresented: $isShowingProviderGuide) {
+            ProviderGuideSheet()
+        }
+        .sheet(isPresented: $isShowingPromptGuide) {
+            PromptGuideSheet()
+        }
     }
 
-    // MARK: - Glass Container Modifier
+    // MARK: - Glass Helpers
 
     private func glassPanel<Content: View>(
         cornerRadius: CGFloat = 10,
@@ -61,12 +70,34 @@ struct ModelSettingsStepView: View {
             )
     }
 
+    private func glassField<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(.fill.quaternary)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
     // MARK: - Provider Picker
 
     private var providerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Модель озвучки")
-                .font(.title3.weight(.semibold))
+            HStack {
+                Text("Модель озвучки")
+                    .font(.title3.weight(.semibold))
+
+                Button {
+                    isShowingProviderGuide = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Подробнее о моделях озвучки")
+            }
 
             Picker("Провайдер", selection: $viewModel.selectedProvider) {
                 ForEach(TTSProvider.allCases, id: \.self) { provider in
@@ -104,12 +135,11 @@ struct ModelSettingsStepView: View {
                 .font(.title3.weight(.semibold))
 
             if viewModel.localSetupState != .notStarted {
-                // Component status list in glass panel
                 glassPanel(cornerRadius: 10, padding: 0) {
                     VStack(alignment: .leading, spacing: 0) {
                         componentRow(
                             title: "Python 3",
-                            helpText: "Python — язык программирования, на котором работают модели озвучки. Устанавливается один раз и не влияет на производительность вашего компьютера.",
+                            helpText: "Python \u{2014} язык программирования, на котором работают модели озвучки. Устанавливается один раз и не влияет на производительность вашего компьютера.",
                             status: viewModel.pythonStatus,
                             isLast: false
                         )
@@ -154,7 +184,6 @@ struct ModelSettingsStepView: View {
                 }
             }
 
-            // Action buttons
             localActionButtons
 
             if viewModel.localSetupState == .needsInstall
@@ -174,8 +203,12 @@ struct ModelSettingsStepView: View {
         switch viewModel.localSetupState {
         case .needsPython:
             HStack(spacing: 12) {
-                Link(destination: URL(string: "https://www.python.org/downloads/")!) {
-                    Label("Скачать Python", systemImage: "arrow.down.circle")
+                Link(
+                    destination: URL(
+                        string: "https://www.python.org/downloads/")!
+                ) {
+                    Label(
+                        "Скачать Python", systemImage: "arrow.down.circle")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -190,7 +223,9 @@ struct ModelSettingsStepView: View {
             Button {
                 Task { await viewModel.beginLocalSetup() }
             } label: {
-                Label("Установить компоненты", systemImage: "arrow.down.circle")
+                Label(
+                    "Установить компоненты",
+                    systemImage: "arrow.down.circle")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -234,7 +269,7 @@ struct ModelSettingsStepView: View {
                 Text(title)
                     .font(.body)
 
-                helpButton(text: helpText)
+                HelpTipButton(text: helpText)
 
                 Spacer()
 
@@ -249,11 +284,6 @@ struct ModelSettingsStepView: View {
                     .padding(.leading, 30)
             }
         }
-    }
-
-    private func helpButton(text: String) -> some View {
-        // Use a button with popover since this is a simple help tip
-        HelpTipButton(text: text)
     }
 
     @ViewBuilder
@@ -304,13 +334,16 @@ struct ModelSettingsStepView: View {
                     Text("API-ключ")
                         .font(.callout.weight(.medium))
 
-                    SecureField(
-                        "API-ключ",
-                        text: $viewModel.apiKey,
-                        prompt: Text("Вставьте ваш API-ключ ElevenLabs")
-                    )
-                    .textFieldStyle(.plain)
-                    .font(.body)
+                    glassField {
+                        SecureField(
+                            "API-ключ",
+                            text: $viewModel.apiKey,
+                            prompt: Text(
+                                "Вставьте ваш API-ключ ElevenLabs")
+                        )
+                        .textFieldStyle(.plain)
+                        .font(.body)
+                    }
 
                     Link(
                         "Получить ключ на elevenlabs.com \u{2192}",
@@ -337,26 +370,30 @@ struct ModelSettingsStepView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("URL сервера")
                                 .font(.callout.weight(.medium))
-                            TextField(
-                                "URL",
-                                text: $viewModel.apiURL,
-                                prompt: Text("http://localhost")
-                            )
-                            .textFieldStyle(.plain)
-                            .font(.body)
+                            glassField {
+                                TextField(
+                                    "URL",
+                                    text: $viewModel.apiURL,
+                                    prompt: Text("http://localhost")
+                                )
+                                .textFieldStyle(.plain)
+                                .font(.body)
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Порт")
                                 .font(.callout.weight(.medium))
-                            TextField(
-                                "Порт",
-                                value: $viewModel.apiPort,
-                                format: .number
-                            )
-                            .textFieldStyle(.plain)
-                            .font(.body)
-                            .frame(width: 80)
+                            glassField {
+                                TextField(
+                                    "Порт",
+                                    value: $viewModel.apiPort,
+                                    format: .number
+                                )
+                                .textFieldStyle(.plain)
+                                .font(.body)
+                                .frame(width: 80)
+                            }
                         }
                     }
 
@@ -386,7 +423,8 @@ struct ModelSettingsStepView: View {
                 )
             }
             .controlSize(.large)
-            .disabled(viewModel.isTestingConnection || !isConnectionTestEnabled)
+            .disabled(
+                viewModel.isTestingConnection || !isConnectionTestEnabled)
 
             if let result = viewModel.connectionTestResult {
                 Label(
@@ -419,18 +457,44 @@ struct ModelSettingsStepView: View {
 
     private var systemPromptSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Системный промпт")
-                .font(.title3.weight(.semibold))
+            HStack {
+                Text("Инструкции для озвучки")
+                    .font(.title3.weight(.semibold))
 
-            glassPanel(cornerRadius: 10, padding: 2) {
+                Button {
+                    isShowingPromptGuide = true
+                } label: {
+                    Image(systemName: "questionmark.circle")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Подробнее об инструкциях")
+
+                Spacer()
+
+                if viewModel.systemPrompt.isEmpty {
+                    Button {
+                        viewModel.insertDefaultPrompt()
+                    } label: {
+                        Label(
+                            "Вставить стандартную",
+                            systemImage: "text.badge.plus")
+                    }
+                    .controlSize(.regular)
+                }
+            }
+
+            glassPanel(cornerRadius: 10, padding: 4) {
                 TextEditor(text: $viewModel.systemPrompt)
                     .font(.body)
                     .frame(minHeight: 100)
                     .scrollContentBackground(.hidden)
+                    .padding(6)
             }
 
             Text(
-                "Пользовательские инструкции для обработки текста перед озвучкой"
+                "Необязательно. Подскажите модели, как именно нужно читать текст."
             )
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -438,7 +502,7 @@ struct ModelSettingsStepView: View {
     }
 }
 
-// MARK: - Help Tip Button
+// MARK: - Help Tip Button (small popover)
 
 private struct HelpTipButton: View {
     let text: String
@@ -460,6 +524,258 @@ private struct HelpTipButton: View {
                 .frame(maxWidth: 280)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+// MARK: - Provider Guide Sheet
+
+private struct ProviderGuideSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Text("Какую модель выбрать?")
+                    .font(.title2.weight(.bold))
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    providerCard(
+                        icon: "desktopcomputer",
+                        name: "Silero TTS",
+                        badge: "Бесплатно",
+                        badgeColor: .green,
+                        qualities: [
+                            "Работает прямо на вашем компьютере \u{2014} интернет не нужен",
+                            "Полностью бесплатная, без ограничений",
+                            "Хорошо читает на русском языке",
+                            "Среднее качество голоса \u{2014} звучит как робот-диктор",
+                        ],
+                        recommendation:
+                            "Лучший выбор, если вам нужна бесплатная озвучка на русском языке и вы не хотите зависеть от интернета."
+                    )
+
+                    providerCard(
+                        icon: "waveform",
+                        name: "Kokoro TTS",
+                        badge: "Бесплатно",
+                        badgeColor: .green,
+                        qualities: [
+                            "Работает на вашем компьютере без интернета",
+                            "Высокое качество \u{2014} голос звучит более естественно",
+                            "Лучше всего работает с английским языком",
+                            "Требует больше ресурсов компьютера",
+                        ],
+                        recommendation:
+                            "Отличный выбор для английских книг или если важно качество звучания без оплаты."
+                    )
+
+                    providerCard(
+                        icon: "cloud",
+                        name: "ElevenLabs",
+                        badge: "Платно",
+                        badgeColor: .orange,
+                        qualities: [
+                            "Самое реалистичное звучание \u{2014} как живой диктор",
+                            "Большой выбор голосов на разных языках",
+                            "Требуется подключение к интернету",
+                            "Нужен API-ключ (регистрация на сайте ElevenLabs)",
+                            "Есть бесплатный лимит, далее \u{2014} платная подписка",
+                        ],
+                        recommendation:
+                            "Лучший выбор, если качество \u{2014} на первом месте и вы готовы платить."
+                    )
+
+                    providerCard(
+                        icon: "server.rack",
+                        name: "Свой API",
+                        badge: "Для продвинутых",
+                        badgeColor: .purple,
+                        qualities: [
+                            "Подключение к любому серверу озвучки",
+                            "Полный контроль над настройками",
+                            "Нужны технические знания для настройки",
+                        ],
+                        recommendation:
+                            "Для опытных пользователей, у которых есть собственный сервер озвучки."
+                    )
+                }
+                .padding(20)
+            }
+        }
+        .frame(width: 520, height: 600)
+    }
+
+    private func providerCard(
+        icon: String,
+        name: String,
+        badge: String,
+        badgeColor: Color,
+        qualities: [String],
+        recommendation: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(.tint)
+                    .frame(width: 24)
+
+                Text(name)
+                    .font(.headline)
+
+                Text(badge)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(badgeColor.opacity(0.15))
+                    .foregroundStyle(badgeColor)
+                    .clipShape(Capsule())
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(qualities, id: \.self) { quality in
+                    HStack(alignment: .top, spacing: 6) {
+                        Text("\u{2022}")
+                            .foregroundStyle(.secondary)
+                        Text(quality)
+                            .font(.callout)
+                    }
+                }
+            }
+            .padding(.leading, 32)
+
+            Text(recommendation)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .italic()
+                .padding(.leading, 32)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+        )
+    }
+}
+
+// MARK: - Prompt Guide Sheet
+
+private struct PromptGuideSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack {
+                Text("Что такое инструкции для озвучки?")
+                    .font(.title2.weight(.bold))
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(20)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(
+                        "Инструкции \u{2014} это подсказка для модели озвучки, которая говорит ей, КАК именно нужно читать ваш текст. Это как если бы вы давали указания живому диктору перед записью."
+                    )
+                    .font(.body)
+
+                    Divider()
+
+                    sectionTitle("Можно не писать ничего")
+                    Text(
+                        "Если вы оставите поле пустым, модель будет читать текст стандартным образом \u{2014} ровно и нейтрально. Для большинства книг этого достаточно."
+                    )
+                    .font(.callout)
+
+                    Divider()
+
+                    sectionTitle("Примеры инструкций")
+
+                    exampleCard(
+                        title: "Для художественной книги",
+                        text:
+                            "Читай выразительно, как профессиональный диктор. Прямую речь читай с интонацией персонажа. Делай паузы между абзацами."
+                    )
+
+                    exampleCard(
+                        title: "Для учебника",
+                        text:
+                            "Читай чётко и размеренно, как лектор. Термины произноси отчётливо. Не торопись."
+                    )
+
+                    exampleCard(
+                        title: "Для детской книги",
+                        text:
+                            "Читай весело и эмоционально, как мама читает сказку ребёнку. Разным персонажам давай разные голоса."
+                    )
+
+                    exampleCard(
+                        title: "Для документации",
+                        text:
+                            "Читай нейтральным деловым тоном. Аббревиатуры произноси по буквам. Числа читай полностью."
+                    )
+
+                    Divider()
+
+                    sectionTitle("Совет")
+                    Text(
+                        "Если вы не знаете, что написать \u{2014} нажмите кнопку \u{00AB}Вставить стандартную\u{00BB}. Стандартная инструкция хорошо подходит для большинства художественных книг."
+                    )
+                    .font(.callout)
+                }
+                .padding(20)
+            }
+        }
+        .frame(width: 480, height: 560)
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.headline)
+    }
+
+    private func exampleCard(title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.callout.weight(.medium))
+            Text("\u{00AB}\(text)\u{00BB}")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .italic()
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.fill.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 

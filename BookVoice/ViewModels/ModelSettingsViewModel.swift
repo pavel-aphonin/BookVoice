@@ -8,6 +8,16 @@ import Foundation
 @Observable
 final class ModelSettingsViewModel {
 
+    // MARK: - Default System Prompt
+
+    static let defaultSystemPrompt = """
+        Читай текст выразительно, как профессиональный диктор аудиокниг. \
+        Делай естественные паузы на знаках препинания. \
+        Имена собственные произноси чётко и разборчиво. \
+        Прямую речь читай с интонацией персонажа. \
+        Описания и авторский текст читай спокойным повествовательным тоном.
+        """
+
     // MARK: - Common Properties
 
     var selectedProvider: TTSProvider
@@ -271,6 +281,16 @@ final class ModelSettingsViewModel {
         }
 
         isTestingConnection = false
+    }
+
+    // MARK: - System Prompt Helpers
+
+    var hasDefaultPrompt: Bool {
+        systemPrompt == Self.defaultSystemPrompt
+    }
+
+    func insertDefaultPrompt() {
+        systemPrompt = Self.defaultSystemPrompt
     }
 
     // MARK: - Save
