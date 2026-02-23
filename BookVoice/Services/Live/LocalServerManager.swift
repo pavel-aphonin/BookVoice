@@ -33,6 +33,17 @@ actor LocalServerManager {
     private let ttsDefaultPort = 8100
     private let rvcDefaultPort = 8101
 
+    // MARK: - Script files to manage
+
+    private static let scriptFiles = [
+        "tts_server.py",
+        "rvc_server.py",
+        "requirements.txt",
+        "requirements_silero.txt",
+        "requirements_kokoro.txt",
+        "requirements_rvc.txt",
+    ]
+
     // MARK: - Python Environment
 
     /// Check if Python 3 is available on the system
@@ -84,7 +95,7 @@ actor LocalServerManager {
             throw LocalServerError.pythonNotFound
         }
 
-        let scriptsDir = getScriptsDirectory()
+        let scriptsDir = try getScriptsDirectory()
 
         // Install base requirements
         try await runPip(pythonPath: pythonPath, requirementsFile: scriptsDir.appendingPathComponent("requirements.txt"))
@@ -147,7 +158,7 @@ actor LocalServerManager {
             throw LocalServerError.pythonNotFound
         }
 
-        let scriptsDir = getScriptsDirectory()
+        let scriptsDir = try getScriptsDirectory()
         let scriptName: String
         var args: [String] = []
 
@@ -202,7 +213,7 @@ actor LocalServerManager {
             process.terminate()
             runningServers[config.type] = nil
             serverPorts[config.type] = nil
-            throw LocalServerError.serverStartFailed("Server did not become ready within timeout")
+            throw LocalServerError.serverStartFailed("Сервер не ответил в течение 30 секунд")
         }
 
         return config.port
@@ -219,10 +230,10 @@ actor LocalServerManager {
 
     /// Stop all running servers
     func stopAll() {
-        for (type, process) in runningServers {
+        for (_, process) in runningServers {
             if process.isRunning {
                 process.terminate()
-                }
+            }
         }
         runningServers.removeAll()
         serverPorts.removeAll()
@@ -259,24 +270,116 @@ actor LocalServerManager {
         return try await startServer(ServerConfig(type: .rvc, port: port, provider: nil))
     }
 
-    // MARK: - Private Helpers
+    // MARK: - Scripts Management
 
-    private func getScriptsDirectory() -> URL {
-        // Look for scripts in the app bundle first
-        if let bundlePath = Bundle.main.resourceURL?.appendingPathComponent("Scripts") {
-            if FileManager.default.fileExists(atPath: bundlePath.path) {
-                return bundlePath
+    /// Ensure scripts are available in the app support directory.
+    /// Copies from bundle if needed.
+    private func ensureScriptsInAppSupport() throws -> URL {
+        let destDir = AppConstants.appSupportDirectory.appendingPathComponent("Scripts")
+
+        // Check if main script already exists
+        if FileManager.default.fileExists(atPath: destDir.appendingPathComponent("tts_server.py").path) {
+            return destDir
+        }
+
+        // Create destination directory
+        try FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
+
+        // Copy each script from bundle
+        for fileName in Self.scriptFiles {
+            let ext = (fileName as NSString).pathExtension
+            let name = (fileName as NSString).deletingPathExtension
+
+            if let sourceURL = findBundleResource(name: name, ext: ext) {
+                let destURL = destDir.appendingPathComponent(fileName)
+                if !FileManager.default.fileExists(atPath: destURL.path) {
+                    try FileManager.default.copyItem(at: sourceURL, to: destURL)
+                }
             }
         }
 
-        // Fallback to app support directory
+        return destDir
+    }
+
+    /// Search for a resource in the app bundle using multiple strategies
+    private nonisolated func findBundleResource(name: String, ext: String) -> URL? {
+        // Strategy 1: Direct subdirectory "Scripts"
+        if let url = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Scripts") {
+            return url
+        }
+
+        // Strategy 2: Nested "Resources/Scripts" (Xcode 16 file system sync)
+        if let url = Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Resources/Scripts") {
+            return url
+        }
+
+        // Strategy 3: Top-level resources (flat bundle layout)
+        if let url = Bundle.main.url(forResource: name, withExtension: ext) {
+            return url
+        }
+
+        // Strategy 4: Manual search in bundle
+        if let resourcePath = Bundle.main.resourcePath {
+            let targetName = "\(name).\(ext)"
+            let fm = FileManager.default
+            if let enumerator = fm.enumerator(atPath: resourcePath) {
+                while let file = enumerator.nextObject() as? String {
+                    if (file as NSString).lastPathComponent == targetName {
+                        return URL(fileURLWithPath: resourcePath).appendingPathComponent(file)
+                    }
+                }
+            }
+        }
+
+        return nil
+    }
+
+    // MARK: - Private Helpers
+
+    private func getScriptsDirectory() throws -> URL {
+        // 1. App support directory (preferred — we copy scripts here)
         let appSupportScripts = AppConstants.appSupportDirectory.appendingPathComponent("Scripts")
-        if FileManager.default.fileExists(atPath: appSupportScripts.path) {
+        if FileManager.default.fileExists(atPath: appSupportScripts.appendingPathComponent("tts_server.py").path) {
             return appSupportScripts
         }
 
-        // Last resort: copy from bundle or create
-        return appSupportScripts
+        // 2. Try to find in bundle and copy to app support
+        if let dir = try? ensureScriptsInAppSupport() {
+            if FileManager.default.fileExists(atPath: dir.appendingPathComponent("tts_server.py").path) {
+                return dir
+            }
+        }
+
+        // 3. Direct bundle search — "Scripts" subdirectory
+        if let bundlePath = Bundle.main.resourceURL?.appendingPathComponent("Scripts"),
+           FileManager.default.fileExists(atPath: bundlePath.appendingPathComponent("tts_server.py").path) {
+            return bundlePath
+        }
+
+        // 4. Xcode 16 file system sync nested path
+        if let bundlePath = Bundle.main.resourceURL?.appendingPathComponent("Resources/Scripts"),
+           FileManager.default.fileExists(atPath: bundlePath.appendingPathComponent("tts_server.py").path) {
+            return bundlePath
+        }
+
+        // 5. Find script anywhere in bundle
+        if let scriptURL = findBundleResource(name: "tts_server", ext: "py") {
+            return scriptURL.deletingLastPathComponent()
+        }
+
+        #if DEBUG
+        // 6. Development: check source project directory
+        let sourceDir = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // Live/
+            .deletingLastPathComponent()  // Services/
+            .deletingLastPathComponent()  // BookVoice/
+            .appendingPathComponent("Resources/Scripts")
+        if FileManager.default.fileExists(atPath: sourceDir.appendingPathComponent("tts_server.py").path) {
+            return sourceDir
+        }
+        #endif
+
+        throw LocalServerError.scriptNotFound("tts_server.py")
     }
 
     private func runPip(pythonPath: String, requirementsFile: URL) async throws {
@@ -301,7 +404,7 @@ actor LocalServerManager {
 
         if process.terminationStatus != 0 {
             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorMsg = String(data: errorData, encoding: .utf8) ?? "Unknown pip error"
+            let errorMsg = String(data: errorData, encoding: .utf8) ?? "Неизвестная ошибка pip"
             throw LocalServerError.dependencyInstallFailed(errorMsg)
         }
     }
@@ -339,13 +442,13 @@ enum LocalServerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .pythonNotFound:
-            "Python 3 not found. Install Python 3 from python.org or via Homebrew."
+            "Python 3 не найден. Установите Python 3 с сайта python.org или через Homebrew."
         case .scriptNotFound(let name):
-            "Server script not found: \(name)"
+            "Не удалось найти файл \(name). Попробуйте переустановить приложение."
         case .serverStartFailed(let reason):
-            "Failed to start local server: \(reason)"
+            "Не удалось запустить локальный сервер: \(reason)"
         case .dependencyInstallFailed(let reason):
-            "Failed to install dependencies: \(reason)"
+            "Ошибка установки библиотек: \(reason)"
         }
     }
 }
