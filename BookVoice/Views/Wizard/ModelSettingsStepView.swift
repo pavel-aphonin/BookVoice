@@ -10,11 +10,9 @@ struct ModelSettingsStepView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 24) {
                 // TTS Provider picker
                 providerSection
-
-                Divider()
 
                 // Provider-specific content
                 switch viewModel.selectedProvider {
@@ -26,8 +24,6 @@ struct ModelSettingsStepView: View {
                     customAPISection
                 }
 
-                Divider()
-
                 // System prompt
                 systemPromptSection
 
@@ -35,10 +31,10 @@ struct ModelSettingsStepView: View {
                 if let error = viewModel.errorMessage {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.red)
-                        .font(.caption)
+                        .font(.callout)
                 }
             }
-            .padding(24)
+            .padding(28)
         }
         .task(id: viewModel.selectedProvider) {
             viewModel.onProviderChanged()
@@ -48,12 +44,29 @@ struct ModelSettingsStepView: View {
         }
     }
 
+    // MARK: - Glass Container Modifier
+
+    private func glassPanel<Content: View>(
+        cornerRadius: CGFloat = 10,
+        padding: CGFloat = 14,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .padding(padding)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+            )
+    }
+
     // MARK: - Provider Picker
 
     private var providerSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Модель озвучки")
-                .font(.headline)
+                .font(.title3.weight(.semibold))
 
             Picker("Провайдер", selection: $viewModel.selectedProvider) {
                 ForEach(TTSProvider.allCases, id: \.self) { provider in
@@ -62,9 +75,10 @@ struct ModelSettingsStepView: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .controlSize(.large)
 
             Text(providerDescription)
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.secondary)
         }
     }
@@ -85,32 +99,35 @@ struct ModelSettingsStepView: View {
     // MARK: - Local Setup Section (Silero / Kokoro)
 
     private var localSetupSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text("Настройка \(viewModel.selectedProvider.displayName)")
-                .font(.headline)
+                .font(.title3.weight(.semibold))
 
             if viewModel.localSetupState != .notStarted {
-                // Component status list
-                VStack(alignment: .leading, spacing: 0) {
-                    componentRow(
-                        title: "Python 3",
-                        status: viewModel.pythonStatus,
-                        isLast: false
-                    )
-                    componentRow(
-                        title: "Библиотеки для озвучки",
-                        status: viewModel.dependenciesStatus,
-                        isLast: false
-                    )
-                    componentRow(
-                        title: "Сервер озвучки",
-                        status: viewModel.serverStatus,
-                        isLast: true
-                    )
+                // Component status list in glass panel
+                glassPanel(cornerRadius: 10, padding: 0) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        componentRow(
+                            title: "Python 3",
+                            helpText: "Python — язык программирования, на котором работают модели озвучки. Устанавливается один раз и не влияет на производительность вашего компьютера.",
+                            status: viewModel.pythonStatus,
+                            isLast: false
+                        )
+                        componentRow(
+                            title: "Библиотеки для озвучки",
+                            helpText: "Программные модули, которые позволяют модели преобразовывать текст в речь. Могут занимать 2\u{2013}5 ГБ на диске (включают нейросетевые модели).",
+                            status: viewModel.dependenciesStatus,
+                            isLast: false
+                        )
+                        componentRow(
+                            title: "Сервер озвучки",
+                            helpText: "Небольшая программа, которая запускается в фоне и обрабатывает запросы на озвучку. Работает только пока открыт BookVoice и автоматически завершается при закрытии.",
+                            status: viewModel.serverStatus,
+                            isLast: true
+                        )
+                    }
+                    .padding(14)
                 }
-                .padding(12)
-                .background(.fill.quaternary)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
 
             // Status message
@@ -132,7 +149,7 @@ struct ModelSettingsStepView: View {
                     }
 
                     Text(message)
-                        .font(.callout)
+                        .font(.body)
                         .foregroundStyle(messageColor)
                 }
             }
@@ -146,7 +163,7 @@ struct ModelSettingsStepView: View {
                 Text(
                     "Первая настройка может занять несколько минут. Потребуется подключение к интернету."
                 )
-                .font(.caption)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
             }
         }
@@ -161,10 +178,12 @@ struct ModelSettingsStepView: View {
                     Label("Скачать Python", systemImage: "arrow.down.circle")
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
 
                 Button("Проверить снова") {
                     Task { await viewModel.checkLocalPrerequisites() }
                 }
+                .controlSize(.large)
             }
 
         case .needsInstall:
@@ -174,6 +193,7 @@ struct ModelSettingsStepView: View {
                 Label("Установить компоненты", systemImage: "arrow.down.circle")
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
 
         case .failed:
             Button {
@@ -182,9 +202,9 @@ struct ModelSettingsStepView: View {
                 Label("Попробовать снова", systemImage: "arrow.clockwise")
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
 
         case .completed:
-            // Already shown via setupMessage
             EmptyView()
 
         default:
@@ -202,30 +222,38 @@ struct ModelSettingsStepView: View {
 
     private func componentRow(
         title: String,
+        helpText: String,
         status: ModelSettingsViewModel.ComponentStatus,
         isLast: Bool
     ) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 statusIcon(for: status)
-                    .frame(width: 18, height: 18)
+                    .frame(width: 20, height: 20)
 
                 Text(title)
-                    .font(.callout)
+                    .font(.body)
+
+                helpButton(text: helpText)
 
                 Spacer()
 
                 Text(statusText(for: status))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
 
             if !isLast {
                 Divider()
-                    .padding(.leading, 28)
+                    .padding(.leading, 30)
             }
         }
+    }
+
+    private func helpButton(text: String) -> some View {
+        // Use a button with popover since this is a simple help tip
+        HelpTipButton(text: text)
     }
 
     @ViewBuilder
@@ -256,10 +284,10 @@ struct ModelSettingsStepView: View {
     ) -> String {
         switch status {
         case .pending: "Ожидает"
-        case .checking: "Проверяю…"
+        case .checking: "Проверяю\u{2026}"
         case .ready: "Готово"
         case .notInstalled: "Не установлено"
-        case .installing: "Устанавливается…"
+        case .installing: "Устанавливается\u{2026}"
         case .failed(let msg): msg
         }
     }
@@ -267,24 +295,30 @@ struct ModelSettingsStepView: View {
     // MARK: - ElevenLabs Section
 
     private var elevenLabsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Подключение к ElevenLabs")
-                .font(.headline)
+                .font(.title3.weight(.semibold))
 
-            SecureField(
-                "API-ключ",
-                text: $viewModel.apiKey,
-                prompt: Text("Вставьте ваш API-ключ ElevenLabs")
-            )
-            .textFieldStyle(.plain)
+            glassPanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("API-ключ")
+                        .font(.callout.weight(.medium))
 
-            Link(
-                "Получить ключ на elevenlabs.com →",
-                destination: URL(string: "https://elevenlabs.io")!
-            )
-            .font(.caption)
+                    SecureField(
+                        "API-ключ",
+                        text: $viewModel.apiKey,
+                        prompt: Text("Вставьте ваш API-ключ ElevenLabs")
+                    )
+                    .textFieldStyle(.plain)
+                    .font(.body)
 
-            Divider()
+                    Link(
+                        "Получить ключ на elevenlabs.com \u{2192}",
+                        destination: URL(string: "https://elevenlabs.io")!
+                    )
+                    .font(.callout)
+                }
+            }
 
             connectionTestRow
         }
@@ -293,38 +327,52 @@ struct ModelSettingsStepView: View {
     // MARK: - Custom API Section
 
     private var customAPISection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Подключение к серверу")
-                .font(.headline)
+                .font(.title3.weight(.semibold))
 
-            HStack(spacing: 12) {
-                TextField(
-                    "URL сервера",
-                    text: $viewModel.apiURL,
-                    prompt: Text("http://localhost")
-                )
-                .textFieldStyle(.plain)
+            glassPanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("URL сервера")
+                                .font(.callout.weight(.medium))
+                            TextField(
+                                "URL",
+                                text: $viewModel.apiURL,
+                                prompt: Text("http://localhost")
+                            )
+                            .textFieldStyle(.plain)
+                            .font(.body)
+                        }
 
-                TextField(
-                    "Порт",
-                    value: $viewModel.apiPort,
-                    format: .number
-                )
-                .textFieldStyle(.plain)
-                .frame(width: 80)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Порт")
+                                .font(.callout.weight(.medium))
+                            TextField(
+                                "Порт",
+                                value: $viewModel.apiPort,
+                                format: .number
+                            )
+                            .textFieldStyle(.plain)
+                            .font(.body)
+                            .frame(width: 80)
+                        }
+                    }
+
+                    Text(
+                        "Сервер должен поддерживать API: POST /api/tts, GET /api/models"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
             }
-
-            Text("Сервер должен поддерживать API: POST /api/tts, GET /api/models")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Divider()
 
             connectionTestRow
         }
     }
 
-    // MARK: - Connection Test Row (shared between ElevenLabs and Custom)
+    // MARK: - Connection Test Row
 
     private var connectionTestRow: some View {
         HStack {
@@ -333,10 +381,11 @@ struct ModelSettingsStepView: View {
             } label: {
                 Label(
                     viewModel.isTestingConnection
-                        ? "Проверяю…" : "Проверить подключение",
+                        ? "Проверяю\u{2026}" : "Проверить подключение",
                     systemImage: "network"
                 )
             }
+            .controlSize(.large)
             .disabled(viewModel.isTestingConnection || !isConnectionTestEnabled)
 
             if let result = viewModel.connectionTestResult {
@@ -346,7 +395,7 @@ struct ModelSettingsStepView: View {
                         ? "checkmark.circle.fill"
                         : "xmark.circle.fill"
                 )
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(
                     viewModel.connectionTestSuccess ? .green : .red
                 )
@@ -369,19 +418,47 @@ struct ModelSettingsStepView: View {
     // MARK: - System Prompt
 
     private var systemPromptSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Системный промпт")
-                .font(.headline)
-            TextEditor(text: $viewModel.systemPrompt)
-                .font(.body)
-                .frame(minHeight: 100)
-                .scrollContentBackground(.hidden)
+                .font(.title3.weight(.semibold))
+
+            glassPanel(cornerRadius: 10, padding: 2) {
+                TextEditor(text: $viewModel.systemPrompt)
+                    .font(.body)
+                    .frame(minHeight: 100)
+                    .scrollContentBackground(.hidden)
+            }
 
             Text(
                 "Пользовательские инструкции для обработки текста перед озвучкой"
             )
-            .font(.caption)
+            .font(.footnote)
             .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - Help Tip Button
+
+private struct HelpTipButton: View {
+    let text: String
+    @State private var isShowingPopover = false
+
+    var body: some View {
+        Button {
+            isShowingPopover.toggle()
+        } label: {
+            Image(systemName: "questionmark.circle")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isShowingPopover, arrowEdge: .trailing) {
+            Text(text)
+                .font(.callout)
+                .padding(12)
+                .frame(maxWidth: 280)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
