@@ -27,12 +27,11 @@ final class ServiceContainer {
             return
         }
 
-        // For now, use mocks everywhere until live implementations are ready
-        self.textProcessing = MockTextProcessingService()
-        self.tts = MockTTSService()
-        self.rvc = MockRVCService()
-        self.audioEngine = MockAudioEngineService()
-        self.modelManager = MockModelManagerService()
+        self.textProcessing = LiveTextProcessingService()
+        self.tts = LiveTTSService()
+        self.rvc = LiveRVCService()
+        self.audioEngine = LiveAudioEngineService()
+        self.modelManager = LiveModelManagerService()
     }
 }
 

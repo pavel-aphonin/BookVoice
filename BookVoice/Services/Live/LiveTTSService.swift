@@ -1,0 +1,374 @@
+//
+//  LiveTTSService.swift
+//  BookVoice
+//
+//  Routes TTS requests to ElevenLabs cloud API or local Python server (Silero/Kokoro).
+//
+
+import Foundation
+
+actor LiveTTSService: TTSService {
+
+    private static let requestTimeout: TimeInterval = 30
+    private var isCancelled = false
+
+    // MARK: - Synthesize
+
+    func synthesize(
+        text: String,
+        modelName: String,
+        provider: TTSProvider,
+        speed: Double,
+        pitch: Double,
+        emotion: String?,
+        apiURL: String,
+        apiPort: Int,
+        outputURL: URL
+    ) async throws -> URL {
+        guard !isCancelled else { throw TTSError.cancelled }
+
+        switch provider {
+        case .elevenLabs:
+            return try await synthesizeElevenLabs(
+                text: text,
+                voiceId: modelName,
+                speed: speed,
+                outputURL: outputURL
+            )
+
+        case .silero, .kokoro:
+            return try await synthesizeLocal(
+                text: text,
+                modelName: modelName,
+                provider: provider,
+                speed: speed,
+                pitch: pitch,
+                emotion: emotion,
+                outputURL: outputURL
+            )
+
+        case .custom:
+            return try await synthesizeCustomAPI(
+                text: text,
+                modelName: modelName,
+                speed: speed,
+                pitch: pitch,
+                emotion: emotion,
+                apiURL: apiURL,
+                apiPort: apiPort,
+                outputURL: outputURL
+            )
+        }
+    }
+
+    // MARK: - Batch Synthesis
+
+    func synthesizeBatch(
+        segments: [(index: Int, text: String)],
+        modelName: String,
+        provider: TTSProvider,
+        speed: Double,
+        pitch: Double,
+        emotion: String?,
+        apiURL: String,
+        apiPort: Int,
+        outputDirectory: URL,
+        progressHandler: @Sendable (Double) -> Void
+    ) async throws -> [URL] {
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        isCancelled = false
+        var results: [URL] = []
+
+        for (i, segment) in segments.enumerated() {
+            guard !isCancelled, !Task.isCancelled else {
+                throw TTSError.cancelled
+            }
+
+            let ext = provider == .elevenLabs ? "mp3" : "wav"
+            let outputURL = outputDirectory.appendingPathComponent("segment_\(segment.index).\(ext)")
+
+            let url = try await synthesize(
+                text: segment.text,
+                modelName: modelName,
+                provider: provider,
+                speed: speed,
+                pitch: pitch,
+                emotion: emotion,
+                apiURL: apiURL,
+                apiPort: apiPort,
+                outputURL: outputURL
+            )
+            results.append(url)
+            progressHandler(Double(i + 1) / Double(segments.count))
+        }
+
+        return results
+    }
+
+    // MARK: - Available Models
+
+    func availableModels(
+        provider: TTSProvider,
+        apiURL: String,
+        apiPort: Int
+    ) async throws -> [String] {
+        switch provider {
+        case .elevenLabs:
+            return try await fetchElevenLabsVoices()
+
+        case .silero, .kokoro:
+            return try await fetchLocalModels(provider: provider)
+
+        case .custom:
+            return try await fetchCustomModels(apiURL: apiURL, apiPort: apiPort)
+        }
+    }
+
+    // MARK: - Cancel
+
+    func cancel() async {
+        isCancelled = true
+    }
+
+    // MARK: - Private: ElevenLabs
+
+    private func synthesizeElevenLabs(
+        text: String,
+        voiceId: String,
+        speed: Double,
+        outputURL: URL
+    ) async throws -> URL {
+        guard let apiKey = UserDefaults.standard.string(forKey: "elevenLabsAPIKey"), !apiKey.isEmpty else {
+            throw TTSError.connectionFailed("ElevenLabs API key not configured. Set it in Settings.")
+        }
+
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voiceId)") else {
+            throw TTSError.connectionFailed("Invalid voice ID: \(voiceId)")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 10)
+
+        let body: [String: Any] = [
+            "text": text,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": [
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "speed": speed,
+            ],
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TTSError.connectionFailed("Invalid response from ElevenLabs")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            throw TTSError.synthesisFaild("ElevenLabs API error: \(errorMsg)")
+        }
+
+        try data.write(to: outputURL)
+        return outputURL
+    }
+
+    private func fetchElevenLabsVoices() async throws -> [String] {
+        guard let apiKey = UserDefaults.standard.string(forKey: "elevenLabsAPIKey"), !apiKey.isEmpty else {
+            throw TTSError.connectionFailed("ElevenLabs API key not configured")
+        }
+
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/voices") else {
+            throw TTSError.connectionFailed("Invalid ElevenLabs API URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
+        request.timeoutInterval = Self.requestTimeout
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw TTSError.connectionFailed("Failed to fetch ElevenLabs voices")
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let voices = json["voices"] as? [[String: Any]] else {
+            throw TTSError.connectionFailed("Invalid response format from ElevenLabs")
+        }
+
+        return voices.compactMap { voice -> String? in
+            guard let voiceId = voice["voice_id"] as? String,
+                  let name = voice["name"] as? String else { return nil }
+            return "\(name) (\(voiceId))"
+        }
+    }
+
+    // MARK: - Private: Local Providers (Silero/Kokoro)
+
+    private func synthesizeLocal(
+        text: String,
+        modelName: String,
+        provider: TTSProvider,
+        speed: Double,
+        pitch: Double,
+        emotion: String?,
+        outputURL: URL
+    ) async throws -> URL {
+        let providerName = provider == .silero ? "silero" : "kokoro"
+        let port = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
+
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/tts") else {
+            throw TTSError.connectionFailed("Invalid local server URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+
+        let body: [String: Any] = [
+            "text": text,
+            "model": modelName,
+            "speed": speed,
+            "pitch": pitch,
+            "emotion": emotion ?? "",
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TTSError.connectionFailed("Invalid response from local TTS server")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            throw TTSError.synthesisFaild("Local TTS error: \(errorMsg)")
+        }
+
+        try data.write(to: outputURL)
+        return outputURL
+    }
+
+    private func fetchLocalModels(provider: TTSProvider) async throws -> [String] {
+        let providerName = provider == .silero ? "silero" : "kokoro"
+        let port = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
+
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/models") else {
+            throw TTSError.connectionFailed("Invalid local server URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = Self.requestTimeout
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw TTSError.connectionFailed("Failed to fetch models from local server")
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [String] else {
+            throw TTSError.connectionFailed("Invalid response from local server")
+        }
+
+        return models
+    }
+
+    // MARK: - Private: Custom API
+
+    private func synthesizeCustomAPI(
+        text: String,
+        modelName: String,
+        speed: Double,
+        pitch: Double,
+        emotion: String?,
+        apiURL: String,
+        apiPort: Int,
+        outputURL: URL
+    ) async throws -> URL {
+        guard let url = URL(string: "\(apiURL):\(apiPort)/api/tts") else {
+            throw TTSError.connectionFailed("Invalid API URL: \(apiURL):\(apiPort)")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+
+        let body: [String: Any] = [
+            "text": text,
+            "model": modelName,
+            "speed": speed,
+            "pitch": pitch,
+            "emotion": emotion ?? "",
+        ]
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TTSError.connectionFailed("Invalid response from custom API")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            throw TTSError.synthesisFaild("Custom API error: \(errorMsg)")
+        }
+
+        try data.write(to: outputURL)
+        return outputURL
+    }
+
+    private func fetchCustomModels(apiURL: String, apiPort: Int) async throws -> [String] {
+        guard let url = URL(string: "\(apiURL):\(apiPort)/api/models") else {
+            throw TTSError.connectionFailed("Invalid API URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = Self.requestTimeout
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw TTSError.connectionFailed("Failed to fetch models from custom API")
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [String] else {
+            return ["default"]
+        }
+
+        return models
+    }
+
+    // MARK: - Private: Network Helper
+
+    private nonisolated func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await URLSession.shared.data(for: request)
+        } catch let error as URLError {
+            switch error.code {
+            case .timedOut:
+                throw TTSError.connectionFailed("Request timed out")
+            case .cannotConnectToHost, .networkConnectionLost:
+                throw TTSError.connectionFailed("Cannot connect to server: \(error.localizedDescription)")
+            default:
+                throw TTSError.connectionFailed(error.localizedDescription)
+            }
+        } catch {
+            throw TTSError.connectionFailed(error.localizedDescription)
+        }
+    }
+}
