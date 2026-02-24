@@ -101,17 +101,44 @@ struct ModelSettingsStepView: View {
                 .help("Подробнее о моделях озвучки")
             }
 
-            Picker("Провайдер", selection: $viewModel.selectedProvider) {
-                ForEach(TTSProvider.allCases, id: \.self) { provider in
-                    Text(provider.displayName).tag(provider)
+            HStack(spacing: 12) {
+                Picker("Провайдер", selection: $viewModel.selectedProvider) {
+                    ForEach(TTSProvider.allCases, id: \.self) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(maxWidth: 280)
+
+                Text(providerBadge)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(providerBadgeColor.opacity(0.15))
+                    .foregroundStyle(providerBadgeColor)
+                    .clipShape(Capsule())
             }
-            .pickerStyle(.radioGroup)
-            .labelsHidden()
 
             Text(providerDescription)
                 .font(.callout)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var providerBadge: String {
+        switch viewModel.selectedProvider {
+        case .silero, .kokoro, .qwenLocal: "Бесплатно"
+        case .elevenLabs, .qwenCloud: "Платно"
+        case .custom: "Для специалистов"
+        }
+    }
+
+    private var providerBadgeColor: Color {
+        switch viewModel.selectedProvider {
+        case .silero, .kokoro, .qwenLocal: .green
+        case .elevenLabs, .qwenCloud: .orange
+        case .custom: .purple
         }
     }
 
@@ -245,7 +272,13 @@ struct ModelSettingsStepView: View {
             .controlSize(.large)
 
         case .completed:
-            EmptyView()
+            Button {
+                Task { await viewModel.reinstallDependencies() }
+            } label: {
+                Label("Переустановить компоненты", systemImage: "arrow.clockwise")
+            }
+            .controlSize(.regular)
+            .help("Если озвучка не работает из-за ошибок, попробуйте переустановить компоненты")
 
         default:
             EmptyView()
@@ -692,8 +725,12 @@ private struct ProviderGuideSheet: View {
                 .padding(20)
             }
         }
-        .background(.ultraThinMaterial)
         .frame(width: 520, height: 620)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+        }
     }
 
     private func providerCard(
@@ -743,7 +780,7 @@ private struct ProviderGuideSheet: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
+        .background(.fill.quaternary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
@@ -831,8 +868,12 @@ private struct PromptGuideSheet: View {
                 .padding(20)
             }
         }
-        .background(.ultraThinMaterial)
         .frame(width: 480, height: 560)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+        }
     }
 
     private func sectionTitle(_ text: String) -> some View {
@@ -851,7 +892,7 @@ private struct PromptGuideSheet: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
+        .background(.fill.quaternary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)

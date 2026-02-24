@@ -10,9 +10,9 @@ struct VoiceProfileRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(.quaternary)
-                .frame(width: 28, height: 28)
+                .frame(width: 36, height: 36)
                 .overlay {
                     statusIcon
                 }
@@ -27,7 +27,8 @@ struct VoiceProfileRow: View {
                     .foregroundStyle(statusColor)
             }
         }
-        .padding(.vertical, 1)
+        .padding(.vertical, 2)
+        .help(statusTooltip)
     }
 
     @ViewBuilder
@@ -35,18 +36,18 @@ struct VoiceProfileRow: View {
         switch profile.trainingStatus {
         case .ready:
             Image(systemName: "checkmark.circle.fill")
-                .font(.caption2)
+                .font(.callout)
                 .foregroundStyle(.green)
         case .pending:
             Image(systemName: "clock.fill")
-                .font(.caption2)
+                .font(.callout)
                 .foregroundStyle(.orange)
         case .training:
             ProgressView()
-                .controlSize(.mini)
+                .controlSize(.small)
         case .failed:
             Image(systemName: "xmark.circle.fill")
-                .font(.caption2)
+                .font(.callout)
                 .foregroundStyle(.red)
         }
     }
@@ -54,9 +55,9 @@ struct VoiceProfileRow: View {
     private var statusText: String {
         switch profile.trainingStatus {
         case .ready:
-            profile.descriptionText.isEmpty ? "Готов" : profile.descriptionText
+            profile.descriptionText.isEmpty ? "Готов к использованию" : profile.descriptionText
         case .pending:
-            "Ожидает обучения"
+            "Готовится к обучению\u{2026}"
         case .training:
             "Обучается\u{2026}"
         case .failed:
@@ -70,6 +71,19 @@ struct VoiceProfileRow: View {
         case .pending: .orange
         case .training: .gray
         case .failed: .red
+        }
+    }
+
+    private var statusTooltip: String {
+        switch profile.trainingStatus {
+        case .ready:
+            "Голос готов. Выберите его на шаге \u{00AB}Тембр\u{00BB} в мастере озвучки."
+        case .pending:
+            "Голос скоро начнёт обучаться. Это произойдёт автоматически. Дождитесь, пока статус сменится на \u{00AB}Готов\u{00BB}."
+        case .training:
+            "Идёт обучение голоса. Это может занять 15\u{2013}20 минут. Вы получите уведомление, когда всё будет готово."
+        case .failed:
+            "Обучение не удалось. Попробуйте удалить этот голос и создать заново с другой записью."
         }
     }
 }

@@ -35,54 +35,57 @@ struct VoiceProfileCreateSheet: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(20)
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 16)
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // Name
-                    glassPanel {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Название голоса")
-                                .font(.callout.weight(.medium))
-                            glassField {
-                                TextField("Например: Диктор Анна", text: $viewModel.newName)
-                                    .textFieldStyle(.plain)
-                                    .font(.body)
-                            }
+            VStack(alignment: .leading, spacing: 20) {
+                // Name
+                glassPanel {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Название голоса")
+                            .font(.callout.weight(.medium))
+                        glassField {
+                            TextField("Например: Диктор Анна", text: $viewModel.newName)
+                                .textFieldStyle(.plain)
+                                .font(.body)
                         }
-                    }
-
-                    // Description
-                    glassPanel {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Описание (необязательно)")
-                                .font(.callout.weight(.medium))
-                            glassField {
-                                TextField("Краткое описание голоса", text: $viewModel.newDescription)
-                                    .textFieldStyle(.plain)
-                                    .font(.body)
-                            }
-                        }
-                    }
-
-                    // Creation mode picker
-                    Picker("Способ создания", selection: $creationMode) {
-                        Text("Из записи голоса").tag(CreationMode.fromSample)
-                        Text("У меня есть файл модели").tag(CreationMode.fromModel)
-                    }
-                    .pickerStyle(.segmented)
-
-                    switch creationMode {
-                    case .fromSample:
-                        fromSampleSection
-                    case .fromModel:
-                        fromModelSection
                     }
                 }
-                .padding(20)
+
+                // Description
+                glassPanel {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Описание (необязательно)")
+                            .font(.callout.weight(.medium))
+                        glassField {
+                            TextField("Краткое описание голоса", text: $viewModel.newDescription)
+                                .textFieldStyle(.plain)
+                                .font(.body)
+                        }
+                    }
+                }
+
+                // Creation mode picker
+                Picker("Способ создания", selection: $creationMode) {
+                    Text("Из записи голоса").tag(CreationMode.fromSample)
+                    Text("У меня есть файл модели").tag(CreationMode.fromModel)
+                }
+                .pickerStyle(.segmented)
+
+                switch creationMode {
+                case .fromSample:
+                    fromSampleSection
+                case .fromModel:
+                    fromModelSection
+                }
+
+                Spacer(minLength: 0)
             }
+            .padding(.horizontal, 24)
+            .padding(.top, 20)
 
             Divider()
 
@@ -117,10 +120,15 @@ struct VoiceProfileCreateSheet: View {
                     .disabled(!viewModel.canCreate)
                 }
             }
-            .padding(20)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
-        .background(.ultraThinMaterial)
-        .frame(width: 500, height: 520)
+        .frame(width: 560, height: 580)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea()
+        }
     }
 
     // MARK: - From Sample Section
@@ -202,7 +210,7 @@ struct VoiceProfileCreateSheet: View {
     ) -> some View {
         content()
             .padding(14)
-            .background(.ultraThinMaterial)
+            .background(.fill.quaternary.opacity(0.5))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)

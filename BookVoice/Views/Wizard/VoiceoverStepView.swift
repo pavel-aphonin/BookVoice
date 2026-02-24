@@ -12,25 +12,28 @@ struct VoiceoverStepView: View {
         VStack(spacing: 16) {
             // Top controls
             VStack(spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("TTS-модель")
-                            .font(.headline)
-                        if viewModel.isLoadingModels {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Picker("Модель", selection: $viewModel.selectedModel) {
-                                if viewModel.availableModels.isEmpty {
-                                    Text("Нет доступных моделей").tag("")
-                                }
-                                ForEach(viewModel.availableModels, id: \.self) { model in
-                                    Text(model).tag(model)
-                                }
+                HStack(spacing: 16) {
+                    Text("Голос")
+                        .font(.headline)
+
+                    if viewModel.isLoadingModels {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Загрузка\u{2026}")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Picker("Голос", selection: $viewModel.selectedModel) {
+                            if viewModel.availableModels.isEmpty {
+                                Text("Нет доступных голосов").tag("")
                             }
-                            .labelsHidden()
-                            .frame(minWidth: 200)
+                            ForEach(viewModel.availableModels, id: \.self) { model in
+                                Text(model).tag(model)
+                            }
                         }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .frame(maxWidth: 250)
                     }
 
                     Spacer()
@@ -43,7 +46,7 @@ struct VoiceoverStepView: View {
                         }
                     } label: {
                         Label(
-                            viewModel.isSynthesizing ? "Отмена" : "Озвучить всё",
+                            viewModel.isSynthesizing ? "Остановить" : "Озвучить всё",
                             systemImage: viewModel.isSynthesizing ? "stop.fill" : "waveform"
                         )
                     }
@@ -67,7 +70,7 @@ struct VoiceoverStepView: View {
                     }
 
                     TextField("Эмоция", text: $viewModel.emotion, prompt: Text("напр., нейтральная"))
-                        .textFieldStyle(.plain)
+                        .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 150)
                 }
             }

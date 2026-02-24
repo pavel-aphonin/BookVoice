@@ -232,7 +232,7 @@ final class ModelSettingsViewModel {
         // Step 2: Install dependencies
         if dependenciesStatus != .ready {
             dependenciesStatus = .installing
-            setupMessage = "Устанавливаю библиотеки для \(selectedProvider.displayName)…\nЭто может занять несколько минут. Не закрывайте приложение."
+            setupMessage = "Устанавливаю библиотеки для \(selectedProvider.displayName)\u{2026}\nЭто может занять несколько минут. Не закрывайте приложение."
 
             do {
                 try await LocalServerManager.shared.installDependencies(for: providerName)
@@ -249,7 +249,7 @@ final class ModelSettingsViewModel {
 
         // Step 3: Start server
         serverStatus = .installing
-        setupMessage = "Запускаю сервер \(selectedProvider.displayName)…"
+        setupMessage = "Запускаю сервер \(selectedProvider.displayName)\u{2026}"
 
         do {
             _ = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
@@ -260,6 +260,60 @@ final class ModelSettingsViewModel {
             serverStatus = .failed(friendlyError(error))
             localSetupState = .failed
             setupMessage = "Не удалось запустить сервер"
+            errorMessage = friendlyError(error)
+        }
+
+        isSettingUp = false
+    }
+
+    /// Переустановить библиотеки (при ошибках вроде missing module)
+    func reinstallDependencies() async {
+        guard !isSettingUp else { return }
+        isSettingUp = true
+        errorMessage = nil
+
+        let providerName: String
+        switch selectedProvider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
+
+        // Force reinstall
+        dependenciesStatus = .installing
+        serverStatus = .pending
+        localSetupState = .installing
+        setupMessage = "Переустанавливаю библиотеки\u{2026}\nЭто может занять несколько минут."
+
+        // Stop server first
+        await LocalServerManager.shared.stopServer(.tts)
+
+        do {
+            try await LocalServerManager.shared.installDependencies(for: providerName)
+            dependenciesStatus = .ready
+        } catch {
+            dependenciesStatus = .failed(friendlyError(error))
+            localSetupState = .failed
+            setupMessage = "Ошибка при переустановке"
+            errorMessage = friendlyError(error)
+            isSettingUp = false
+            return
+        }
+
+        // Restart server
+        serverStatus = .installing
+        setupMessage = "Запускаю сервер\u{2026}"
+
+        do {
+            _ = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
+            serverStatus = .ready
+            localSetupState = .completed
+            setupMessage = "Всё готово! Библиотеки переустановлены."
+        } catch {
+            serverStatus = .failed(friendlyError(error))
+            localSetupState = .failed
+            setupMessage = "Не удалось запустить сервер после переустановки"
             errorMessage = friendlyError(error)
         }
 

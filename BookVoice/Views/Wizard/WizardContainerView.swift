@@ -7,11 +7,19 @@ import SwiftUI
 
 struct WizardContainerView: View {
     @State private var viewModel: WizardViewModel
+    @State private var showExitConfirmation = false
     var onDismiss: () -> Void
 
     init(project: VoiceoverProject, services: ServiceContainer, onDismiss: @escaping () -> Void) {
         self._viewModel = State(initialValue: WizardViewModel(project: project, services: services))
         self.onDismiss = onDismiss
+    }
+
+    /// Есть ли данные, которые могут быть потеряны
+    private var hasUnsavedWork: Bool {
+        viewModel.currentStep > 1
+            || !viewModel.modelSettings.systemPrompt.isEmpty
+            || viewModel.voiceover.segmentStates.contains(where: { $0.isCompleted })
     }
 
     var body: some View {
@@ -56,9 +64,13 @@ struct WizardContainerView: View {
 
             // Bottom: Navigation buttons
             HStack {
-                Button("Отмена") {
-                    viewModel.saveCurrentStepToProject()
-                    onDismiss()
+                Button("Закрыть") {
+                    if hasUnsavedWork {
+                        showExitConfirmation = true
+                    } else {
+                        viewModel.saveCurrentStepToProject()
+                        onDismiss()
+                    }
                 }
                 .keyboardShortcut(.escape, modifiers: [])
 
@@ -94,6 +106,18 @@ struct WizardContainerView: View {
                 }
             }
             .padding(16)
+        }
+        .alert("Выйти из мастера?", isPresented: $showExitConfirmation) {
+            Button("Остаться", role: .cancel) {}
+            Button("Сохранить и выйти") {
+                viewModel.saveCurrentStepToProject()
+                onDismiss()
+            }
+            Button("Выйти без сохранения", role: .destructive) {
+                onDismiss()
+            }
+        } message: {
+            Text("Ваш прогресс будет сохранён, и вы сможете продолжить позже. Если выйдете без сохранения, несохранённые изменения будут потеряны.")
         }
     }
 }

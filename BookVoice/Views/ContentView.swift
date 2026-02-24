@@ -24,6 +24,12 @@ struct ContentView: View {
     @State private var showDeleteAlert = false
     @State private var voiceLibraryVM = VoiceLibraryViewModel()
     @State private var isVoicesSectionExpanded = false
+    @State private var isProjectsSectionExpanded = true
+    @State private var renamingProject: VoiceoverProject?
+    @State private var renamingVoice: VoiceProfile?
+    @State private var renameText = ""
+    @State private var showRenameAlert = false
+    @State private var showRenameVoiceAlert = false
 
     private var filteredProjects: [VoiceoverProject] {
         allProjects.filter { project in
@@ -73,6 +79,25 @@ struct ContentView: View {
         .sheet(isPresented: $voiceLibraryVM.showingCreateSheet) {
             VoiceProfileCreateSheet(viewModel: voiceLibraryVM)
         }
+        .alert("Переименовать проект", isPresented: $showRenameAlert) {
+            TextField("Название", text: $renameText)
+            Button("Отмена", role: .cancel) {}
+            Button("Сохранить") {
+                if let project = renamingProject, !renameText.isEmpty {
+                    project.title = renameText
+                    project.updatedAt = Date()
+                }
+            }
+        }
+        .alert("Переименовать голос", isPresented: $showRenameVoiceAlert) {
+            TextField("Название", text: $renameText)
+            Button("Отмена", role: .cancel) {}
+            Button("Сохранить") {
+                if let voice = renamingVoice, !renameText.isEmpty {
+                    voice.name = renameText
+                }
+            }
+        }
         .alert("Удалить голосовой профиль?", isPresented: $voiceLibraryVM.showingDeleteAlert) {
             Button("Отмена", role: .cancel) {}
             Button("Удалить", role: .destructive) {
@@ -92,31 +117,69 @@ struct ContentView: View {
     @ViewBuilder
     private var sidebar: some View {
         List {
-            TextField("Поиск проектов...", text: $searchText)
+            TextField("Поиск...", text: $searchText)
                 .textFieldStyle(.roundedBorder)
                 .padding(.bottom, 4)
 
-            Section("Недавние проекты") {
-                ForEach(filteredProjects) { project in
-                    SidebarProjectRow(project: project)
-                        .contentShape(Rectangle())
-                        .onTapGesture { openProject(project) }
-                        .contextMenu {
-                            Button("Открыть") { openProject(project) }
-                            Divider()
-                            Button("Удалить", role: .destructive) {
-                                projectToDelete = project
-                                showDeleteAlert = true
+            // Projects section (expanded by default)
+            Section {
+                DisclosureGroup(isExpanded: $isProjectsSectionExpanded) {
+                    if filteredProjects.isEmpty {
+                        if allProjects.isEmpty {
+                            HStack {
+                                Spacer()
+                                VStack(spacing: 6) {
+                                    Image(systemName: "book.closed")
+                                        .font(.title2)
+                                        .foregroundStyle(.quaternary)
+                                    Text("Нет проектов")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .padding(.vertical, 12)
+                                Spacer()
                             }
+                        } else {
+                            Text("Ничего не найдено по запросу «\(searchText)»")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 8)
                         }
+                    } else {
+                        ForEach(filteredProjects) { project in
+                            SidebarProjectRow(project: project)
+                                .contentShape(Rectangle())
+                                .onTapGesture { openProject(project) }
+                                .contextMenu {
+                                    Button("Открыть") { openProject(project) }
+                                    Button("Переименовать") { startRenamingProject(project) }
+                                    Divider()
+                                    Button("Удалить", role: .destructive) {
+                                        projectToDelete = project
+                                        showDeleteAlert = true
+                                    }
+                                }
+                        }
+                    }
+                } label: {
+                    Label {
+                        Text("Проекты")
+                    } icon: {
+                        Image(systemName: "book.fill")
+                            .foregroundStyle(.blue)
+                    }
+                    .font(.subheadline.weight(.medium))
                 }
             }
 
+            // Voices section (collapsed by default)
             Section {
                 DisclosureGroup(isExpanded: $isVoicesSectionExpanded) {
                     ForEach(voiceProfiles) { profile in
                         VoiceProfileRow(profile: profile)
                             .contextMenu {
+                                Button("Переименовать") { startRenamingVoice(profile) }
+                                Divider()
                                 Button("Удалить", role: .destructive) {
                                     voiceLibraryVM.profileToDelete = profile
                                     voiceLibraryVM.showingDeleteAlert = true
@@ -145,20 +208,7 @@ struct ContentView: View {
             }
         }
         .listStyle(.sidebar)
-        .overlay {
-            if filteredProjects.isEmpty {
-                if allProjects.isEmpty {
-                    ContentUnavailableView(
-                        "Нет проектов",
-                        systemImage: "waveform",
-                        description: Text("Создайте первую озвучку.")
-                    )
-                } else {
-                    ContentUnavailableView.search(text: searchText)
-                }
-            }
-        }
-        .navigationTitle("Проекты")
+        .navigationTitle("BookVoice")
     }
 
     // MARK: - Detail
@@ -212,6 +262,18 @@ struct ContentView: View {
         let project = VoiceoverProject(title: "Новый проект")
         modelContext.insert(project)
         openProject(project)
+    }
+
+    private func startRenamingProject(_ project: VoiceoverProject) {
+        renamingProject = project
+        renameText = project.title
+        showRenameAlert = true
+    }
+
+    private func startRenamingVoice(_ voice: VoiceProfile) {
+        renamingVoice = voice
+        renameText = voice.name
+        showRenameVoiceAlert = true
     }
 }
 
