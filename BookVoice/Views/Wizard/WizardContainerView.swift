@@ -76,14 +76,13 @@ struct WizardContainerView: View {
                     Button {
                         viewModel.saveCurrentStepToProject()
                         Task {
-                            let audioFiles = viewModel.voiceover.segmentStates.compactMap { $0.audioURL }
-                            await viewModel.postProcessing.export(audioFiles: audioFiles)
+                            await viewModel.postProcessing.export(audioFiles: viewModel.finalAudioURLs)
                         }
                     } label: {
                         Label("Экспорт", systemImage: "square.and.arrow.up.fill")
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(!viewModel.postProcessing.canExport)
+                    .disabled(!viewModel.postProcessing.canExport || viewModel.finalAudioURLs.isEmpty)
                 } else {
                     Button {
                         viewModel.goToNextStep()

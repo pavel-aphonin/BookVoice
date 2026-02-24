@@ -60,13 +60,15 @@ final class VoiceoverViewModel {
     }
 
     private let ttsService: any TTSService
+    private let notificationService: any NotificationService
     private let provider: TTSProvider
     private let apiURL: String
     private let apiPort: Int
     private var synthesisTask: Task<Void, Never>?
 
-    init(project: VoiceoverProject, ttsService: any TTSService) {
+    init(project: VoiceoverProject, ttsService: any TTSService, notificationService: any NotificationService) {
         self.ttsService = ttsService
+        self.notificationService = notificationService
         self.speed = project.ttsSpeed
         self.pitch = project.ttsPitch
         self.emotion = project.ttsEmotion ?? ""
@@ -158,8 +160,16 @@ final class VoiceoverViewModel {
                             segmentStates[i].audioURL = url
                         }
                     }
+                    await notificationService.send(
+                        title: "Озвучка готова",
+                        body: "\(segments.count) сегментов синтезировано"
+                    )
                 } catch {
                     errorMessage = error.localizedDescription
+                    await notificationService.send(
+                        title: "Ошибка озвучки",
+                        body: error.localizedDescription
+                    )
                 }
                 isSynthesizing = false
             }

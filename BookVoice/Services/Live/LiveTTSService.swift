@@ -36,13 +36,22 @@ actor LiveTTSService: TTSService {
                 outputURL: outputURL
             )
 
-        case .silero, .kokoro:
+        case .silero, .kokoro, .qwenLocal:
             return try await synthesizeLocal(
                 text: text,
                 modelName: modelName,
                 provider: provider,
                 speed: speed,
                 pitch: pitch,
+                emotion: emotion,
+                outputURL: outputURL
+            )
+
+        case .qwenCloud:
+            return try await synthesizeQwenCloud(
+                text: text,
+                modelName: modelName,
+                speed: speed,
                 emotion: emotion,
                 outputURL: outputURL
             )
@@ -117,8 +126,11 @@ actor LiveTTSService: TTSService {
         case .elevenLabs:
             return try await fetchElevenLabsVoices()
 
-        case .silero, .kokoro:
+        case .silero, .kokoro, .qwenLocal:
             return try await fetchLocalModels(provider: provider)
+
+        case .qwenCloud:
+            return ["qwen3-tts-flash"]
 
         case .custom:
             return try await fetchCustomModels(apiURL: apiURL, apiPort: apiPort)
@@ -212,7 +224,56 @@ actor LiveTTSService: TTSService {
         }
     }
 
-    // MARK: - Private: Local Providers (Silero/Kokoro)
+    // MARK: - Private: Qwen Cloud (DashScope API)
+
+    private func synthesizeQwenCloud(
+        text: String,
+        modelName: String,
+        speed: Double,
+        emotion: String?,
+        outputURL: URL
+    ) async throws -> URL {
+        guard let apiKey = UserDefaults.standard.string(forKey: "dashscopeAPIKey"), !apiKey.isEmpty else {
+            throw TTSError.connectionFailed("DashScope API key not configured. Set it in Settings.")
+        }
+
+        guard let url = URL(string: "https://dashscope.aliyuncs.com/compatible-mode/v1/audio/speech") else {
+            throw TTSError.connectionFailed("Invalid DashScope API URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+
+        var body: [String: Any] = [
+            "model": modelName.isEmpty ? "qwen3-tts-flash" : modelName,
+            "input": text,
+        ]
+
+        if let emotion = emotion, !emotion.isEmpty {
+            body["voice_instruct"] = emotion
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TTSError.connectionFailed("Invalid response from DashScope")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            throw TTSError.synthesisFaild("DashScope API error: \(errorMsg)")
+        }
+
+        try data.write(to: outputURL)
+        return outputURL
+    }
+
+    // MARK: - Private: Local Providers (Silero/Kokoro/Qwen)
 
     private func synthesizeLocal(
         text: String,
@@ -223,7 +284,13 @@ actor LiveTTSService: TTSService {
         emotion: String?,
         outputURL: URL
     ) async throws -> URL {
-        let providerName = provider == .silero ? "silero" : "kokoro"
+        let providerName: String
+        switch provider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
         let port = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
 
         guard let url = URL(string: "http://127.0.0.1:\(port)/api/tts") else {
@@ -261,7 +328,13 @@ actor LiveTTSService: TTSService {
     }
 
     private func fetchLocalModels(provider: TTSProvider) async throws -> [String] {
-        let providerName = provider == .silero ? "silero" : "kokoro"
+        let providerName: String
+        switch provider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
         let port = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
 
         guard let url = URL(string: "http://127.0.0.1:\(port)/api/models") else {

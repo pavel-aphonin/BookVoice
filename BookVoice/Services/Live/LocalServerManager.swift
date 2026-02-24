@@ -22,7 +22,7 @@ actor LocalServerManager {
     struct ServerConfig: Sendable {
         let type: ServerType
         let port: Int
-        let provider: String?  // For TTS: "silero", "kokoro"
+        let provider: String?  // For TTS: "silero", "kokoro", "qwen"
     }
 
     // MARK: - State
@@ -41,6 +41,7 @@ actor LocalServerManager {
         "requirements.txt",
         "requirements_silero.txt",
         "requirements_kokoro.txt",
+        "requirements_qwen.txt",
         "requirements_rvc.txt",
     ]
 
@@ -118,6 +119,8 @@ actor LocalServerManager {
             packages = ["fastapi", "uvicorn", "torch"]
         case "kokoro":
             packages = ["fastapi", "uvicorn", "kokoro"]
+        case "qwen":
+            packages = ["fastapi", "uvicorn", "torch", "qwen_tts"]
         case "rvc":
             packages = ["fastapi", "uvicorn", "rvc_python"]
         default:

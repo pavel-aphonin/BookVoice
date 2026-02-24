@@ -13,6 +13,8 @@ struct ContentView: View {
     @Environment(ServiceContainer.self) private var services
     @Query(sort: \VoiceoverProject.updatedAt, order: .reverse)
     private var allProjects: [VoiceoverProject]
+    @Query(sort: \VoiceProfile.createdAt, order: .reverse)
+    private var voiceProfiles: [VoiceProfile]
 
     @State private var activeProject: VoiceoverProject?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -20,6 +22,7 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var projectToDelete: VoiceoverProject?
     @State private var showDeleteAlert = false
+    @State private var voiceLibraryVM = VoiceLibraryViewModel()
 
     private var filteredProjects: [VoiceoverProject] {
         allProjects.filter { project in
@@ -66,6 +69,21 @@ struct ContentView: View {
         .onAppear {
             audioPlayer = AudioPlayerViewModel(audioEngine: services.audioEngine)
         }
+        .sheet(isPresented: $voiceLibraryVM.showingCreateSheet) {
+            VoiceProfileCreateSheet(viewModel: voiceLibraryVM)
+        }
+        .alert("Удалить голосовой профиль?", isPresented: $voiceLibraryVM.showingDeleteAlert) {
+            Button("Отмена", role: .cancel) {}
+            Button("Удалить", role: .destructive) {
+                if let profile = voiceLibraryVM.profileToDelete {
+                    voiceLibraryVM.deleteProfile(profile, from: modelContext)
+                }
+            }
+        } message: {
+            if let profile = voiceLibraryVM.profileToDelete {
+                Text("Вы уверены, что хотите удалить голос \"\(profile.name)\"?")
+            }
+        }
     }
 
     // MARK: - Sidebar
@@ -91,6 +109,30 @@ struct ContentView: View {
                             }
                         }
                 }
+            }
+
+            Section {
+                ForEach(voiceProfiles) { profile in
+                    VoiceProfileRow(profile: profile)
+                        .contextMenu {
+                            Button("Удалить", role: .destructive) {
+                                voiceLibraryVM.profileToDelete = profile
+                                voiceLibraryVM.showingDeleteAlert = true
+                            }
+                        }
+                }
+
+                Button {
+                    voiceLibraryVM.resetForm()
+                    voiceLibraryVM.showingCreateSheet = true
+                } label: {
+                    Label("Добавить голос", systemImage: "plus")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Голоса")
             }
         }
         .listStyle(.sidebar)

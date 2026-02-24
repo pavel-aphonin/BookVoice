@@ -71,6 +71,8 @@ nonisolated final class MockTTSService: TTSService, Sendable {
         case .silero: return ["v3_en", "v3_de", "v3_fr", "v4_ru"]
         case .elevenLabs: return ["Rachel", "Domi", "Bella", "Antoni", "Elli"]
         case .kokoro: return ["kokoro-v1", "kokoro-v2"]
+        case .qwenLocal: return ["0.6B-CustomVoice", "1.7B-CustomVoice", "1.7B-Base"]
+        case .qwenCloud: return ["qwen3-tts-flash"]
         case .custom: return ["default"]
         }
     }

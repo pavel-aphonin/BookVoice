@@ -29,6 +29,7 @@ final class ModelSettingsViewModel {
     var apiURL: String
     var apiPort: Int
     var apiKey: String  // For ElevenLabs
+    var dashScopeAPIKey: String  // For Qwen Cloud (DashScope)
 
     var isTestingConnection = false
     var connectionTestResult: String?
@@ -83,9 +84,9 @@ final class ModelSettingsViewModel {
 
     var isValid: Bool {
         switch selectedProvider {
-        case .silero, .kokoro:
+        case .silero, .kokoro, .qwenLocal:
             return localSetupState == .completed
-        case .elevenLabs:
+        case .elevenLabs, .qwenCloud:
             return connectionTestSuccess
         case .custom:
             return !apiURL.isEmpty && apiPort > 0 && apiPort <= 65535
@@ -104,6 +105,7 @@ final class ModelSettingsViewModel {
         self.apiURL = project.apiURL
         self.apiPort = project.apiPort
         self.apiKey = UserDefaults.standard.string(forKey: "elevenLabsAPIKey") ?? ""
+        self.dashScopeAPIKey = UserDefaults.standard.string(forKey: "dashscopeAPIKey") ?? ""
         self.ttsService = ttsService
     }
 
@@ -150,7 +152,13 @@ final class ModelSettingsViewModel {
 
         // Step 2: Check dependencies
         dependenciesStatus = .checking
-        let providerName = selectedProvider == .silero ? "silero" : "kokoro"
+        let providerName: String
+        switch selectedProvider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
         let hasDeps = await LocalServerManager.shared.areDependenciesInstalled(for: providerName)
         guard thisGeneration == checkGeneration, !Task.isCancelled else { return }
         dependenciesStatus = hasDeps ? .ready : .notInstalled
@@ -199,7 +207,13 @@ final class ModelSettingsViewModel {
         localSetupState = .installing
         errorMessage = nil
 
-        let providerName = selectedProvider == .silero ? "silero" : "kokoro"
+        let providerName: String
+        switch selectedProvider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
 
         // Step 1: Verify Python
         if pythonStatus != .ready {
@@ -260,9 +274,11 @@ final class ModelSettingsViewModel {
         connectionTestSuccess = false
         errorMessage = nil
 
-        // Save API key for ElevenLabs before testing
+        // Save API key before testing
         if selectedProvider == .elevenLabs {
             UserDefaults.standard.set(apiKey, forKey: "elevenLabsAPIKey")
+        } else if selectedProvider == .qwenCloud {
+            UserDefaults.standard.set(dashScopeAPIKey, forKey: "dashscopeAPIKey")
         }
 
         do {
@@ -304,6 +320,8 @@ final class ModelSettingsViewModel {
 
         if selectedProvider == .elevenLabs {
             UserDefaults.standard.set(apiKey, forKey: "elevenLabsAPIKey")
+        } else if selectedProvider == .qwenCloud {
+            UserDefaults.standard.set(dashScopeAPIKey, forKey: "dashscopeAPIKey")
         }
     }
 

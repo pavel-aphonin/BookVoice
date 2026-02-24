@@ -19,10 +19,12 @@ struct ModelSettingsStepView: View {
 
                 // Provider-specific content
                 switch viewModel.selectedProvider {
-                case .silero, .kokoro:
+                case .silero, .kokoro, .qwenLocal:
                     localSetupSection
                 case .elevenLabs:
                     elevenLabsSection
+                case .qwenCloud:
+                    dashScopeSection
                 case .custom:
                     customAPISection
                 }
@@ -122,6 +124,10 @@ struct ModelSettingsStepView: View {
             "Локальная модель с высоким качеством речи. Работает без интернета после установки."
         case .elevenLabs:
             "Облачный сервис с реалистичными голосами. Требуется API-ключ и подключение к интернету."
+        case .qwenLocal:
+            "Локальная модель Qwen3-TTS от Alibaba. 10 языков, клонирование голоса, управление эмоциями."
+        case .qwenCloud:
+            "Облачный API DashScope от Alibaba. Высокое качество, требуется API-ключ."
         case .custom:
             "Подключение к стороннему серверу озвучки по HTTP API."
         }
@@ -357,6 +363,41 @@ struct ModelSettingsStepView: View {
         }
     }
 
+    // MARK: - DashScope Section (Qwen Cloud)
+
+    private var dashScopeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Подключение к DashScope")
+                .font(.title3.weight(.semibold))
+
+            glassPanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("API-ключ DashScope")
+                        .font(.callout.weight(.medium))
+
+                    glassField {
+                        SecureField(
+                            "API-ключ",
+                            text: $viewModel.dashScopeAPIKey,
+                            prompt: Text(
+                                "Вставьте ваш API-ключ DashScope")
+                        )
+                        .textFieldStyle(.plain)
+                        .font(.body)
+                    }
+
+                    Link(
+                        "Получить ключ на dashscope.console.aliyun.com \u{2192}",
+                        destination: URL(string: "https://dashscope.console.aliyun.com/")!
+                    )
+                    .font(.callout)
+                }
+            }
+
+            connectionTestRow
+        }
+    }
+
     // MARK: - Custom API Section
 
     private var customAPISection: some View {
@@ -446,6 +487,8 @@ struct ModelSettingsStepView: View {
         switch viewModel.selectedProvider {
         case .elevenLabs:
             return !viewModel.apiKey.isEmpty
+        case .qwenCloud:
+            return !viewModel.dashScopeAPIKey.isEmpty
         case .custom:
             return !viewModel.apiURL.isEmpty && viewModel.apiPort > 0
         default:
@@ -598,6 +641,36 @@ private struct ProviderGuideSheet: View {
                         ],
                         recommendation:
                             "Лучший выбор, если качество \u{2014} на первом месте и вы готовы платить."
+                    )
+
+                    providerCard(
+                        icon: "waveform.circle",
+                        name: "Qwen3 TTS (локально)",
+                        badge: "Бесплатно",
+                        badgeColor: .green,
+                        qualities: [
+                            "Open-source модель от Alibaba с 10 языками",
+                            "Поддержка клонирования голоса и управления эмоциями",
+                            "Работает на вашем компьютере без интернета",
+                            "Требуется значительный объём памяти (GPU/MPS)",
+                        ],
+                        recommendation:
+                            "Отличный выбор для клонирования голоса или если нужна многоязычная поддержка."
+                    )
+
+                    providerCard(
+                        icon: "cloud.fill",
+                        name: "Qwen3 TTS (DashScope)",
+                        badge: "Платно",
+                        badgeColor: .orange,
+                        qualities: [
+                            "Облачный API от Alibaba Cloud",
+                            "Высокое качество без нагрузки на компьютер",
+                            "Требуется DashScope API-ключ",
+                            "Требуется подключение к интернету",
+                        ],
+                        recommendation:
+                            "Хороший выбор для высококачественной озвучки без установки тяжёлых моделей."
                     )
 
                     providerCard(

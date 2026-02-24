@@ -172,6 +172,92 @@ class KokoroEngine:
         return buf.getvalue()
 
 
+# --- Qwen3 TTS Engine ---
+
+class QwenTTSEngine:
+    def __init__(self, models_dir: str):
+        self.models_dir = Path(models_dir)
+        self.model = None
+        self.model_name = None
+        self.sample_rate = 24000
+
+    def load_model(self, model_name: str):
+        if self.model_name == model_name and self.model is not None:
+            return
+
+        try:
+            from qwen_tts import Qwen3TTSModel
+            import torch
+
+            # Determine device: prefer MPS on macOS, fallback to CPU
+            if torch.backends.mps.is_available():
+                device_map = "mps"
+            else:
+                device_map = "cpu"
+
+            # Map short names to HuggingFace model IDs
+            model_id_map = {
+                "0.6B-CustomVoice": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+                "1.7B-CustomVoice": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+                "1.7B-Base": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+                "1.7B-VoiceDesign": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+            }
+
+            model_id = model_id_map.get(model_name, model_name)
+            if not model_id.startswith("Qwen/"):
+                model_id = f"Qwen/{model_id}"
+
+            self.model = Qwen3TTSModel.from_pretrained(
+                model_id,
+                device_map=device_map,
+                dtype=torch.float32,
+            )
+            self.model_name = model_name
+        except ImportError:
+            raise RuntimeError("qwen-tts package not installed. Run: pip install qwen-tts")
+
+    def synthesize(self, text: str, model_name: str, speed: float = 1.0, **kwargs) -> bytes:
+        self.load_model(model_name)
+
+        emotion = kwargs.get("emotion", "")
+        speaker = kwargs.get("speaker", "Vivian")
+
+        # Use custom voice generation with optional emotion/instruct
+        wavs, sr = self.model.generate_custom_voice(
+            text=text,
+            language="Russian",
+            speaker=speaker,
+            instruct=emotion if emotion else None,
+        )
+
+        self.sample_rate = sr
+        audio_np = wavs[0]
+        if hasattr(audio_np, "numpy"):
+            audio_np = audio_np.numpy()
+
+        return self._to_wav(audio_np, sr)
+
+    def list_models(self) -> list[str]:
+        return [
+            "0.6B-CustomVoice",
+            "1.7B-CustomVoice",
+            "1.7B-Base",
+            "1.7B-VoiceDesign",
+        ]
+
+    def _to_wav(self, audio_np, sample_rate: int) -> bytes:
+        import numpy as np
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            if audio_np.dtype != np.int16:
+                audio_np = (audio_np * 32767).astype(np.int16)
+            wf.writeframes(audio_np.tobytes())
+        return buf.getvalue()
+
+
 # --- API Endpoints ---
 
 @app.post("/api/tts")
@@ -213,6 +299,8 @@ def create_engine(provider: str, models_dir: str):
         return SileroEngine(models_dir)
     elif provider == "kokoro":
         return KokoroEngine(models_dir)
+    elif provider == "qwen":
+        return QwenTTSEngine(models_dir)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -221,7 +309,7 @@ def main():
     global _tts_engine, _current_provider, _models_dir
 
     parser = argparse.ArgumentParser(description="BookVoice TTS Server")
-    parser.add_argument("--provider", required=True, choices=["silero", "kokoro"])
+    parser.add_argument("--provider", required=True, choices=["silero", "kokoro", "qwen"])
     parser.add_argument("--port", type=int, default=8100)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--models-dir", default="")

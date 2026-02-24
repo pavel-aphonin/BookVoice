@@ -12,6 +12,7 @@ final class ServiceContainer {
     let rvc: any RVCService
     let audioEngine: any AudioEngineService
     let modelManager: any ModelManagerService
+    let notification: any NotificationService
 
     static let shared = ServiceContainer()
 
@@ -24,6 +25,7 @@ final class ServiceContainer {
             self.rvc = MockRVCService()
             self.audioEngine = MockAudioEngineService()
             self.modelManager = MockModelManagerService()
+            self.notification = MockNotificationService()
             return
         }
 
@@ -32,6 +34,7 @@ final class ServiceContainer {
         self.rvc = LiveRVCService()
         self.audioEngine = LiveAudioEngineService()
         self.modelManager = LiveModelManagerService()
+        self.notification = LiveNotificationService()
     }
 }
 

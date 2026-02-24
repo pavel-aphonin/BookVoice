@@ -147,7 +147,8 @@ struct VoiceoverStepView: View {
     VoiceoverStepView(
         viewModel: VoiceoverViewModel(
             project: VoiceoverProject(title: "Test"),
-            ttsService: MockTTSService()
+            ttsService: MockTTSService(),
+            notificationService: MockNotificationService()
         )
     )
     .frame(width: 700, height: 500)

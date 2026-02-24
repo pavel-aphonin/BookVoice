@@ -4,9 +4,12 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct TimbreChangeStepView: View {
     @Bindable var viewModel: TimbreChangeViewModel
+    @Query(sort: \VoiceProfile.createdAt, order: .reverse)
+    private var voiceProfiles: [VoiceProfile]
 
     var body: some View {
         VStack(spacing: 24) {
@@ -21,9 +24,32 @@ struct TimbreChangeStepView: View {
             if viewModel.isEnabled {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        // RVC Model
+                        // Voice profile from library
+                        if !voiceProfiles.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Голос из библиотеки")
+                                    .font(.headline)
+                                Picker("Голос", selection: $viewModel.selectedVoiceProfileId) {
+                                    Text("Не выбран").tag(UUID?.none)
+                                    ForEach(voiceProfiles) { profile in
+                                        Text(profile.name).tag(Optional(profile.id))
+                                    }
+                                }
+                                .labelsHidden()
+                                .onChange(of: viewModel.selectedVoiceProfileId) { _, newValue in
+                                    if let id = newValue,
+                                       let profile = voiceProfiles.first(where: { $0.id == id }) {
+                                        viewModel.selectVoiceProfile(profile)
+                                    }
+                                }
+                            }
+
+                            Divider()
+                        }
+
+                        // RVC Model (manual)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Модель RVC")
+                            Text("Или выберите модель вручную")
                                 .font(.headline)
                             HStack {
                                 if viewModel.isLoadingModels {
@@ -114,6 +140,57 @@ struct TimbreChangeStepView: View {
                                 }
                             }
                         }
+
+                        Divider()
+
+                        // Demo preview
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Демо-прослушивание")
+                                .font(.headline)
+                            Text("Примените RVC к одному сегменту для проверки настроек")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            HStack {
+                                if viewModel.audioSegmentURLs.count > 1 {
+                                    Picker("Сегмент", selection: $viewModel.demoSegmentIndex) {
+                                        ForEach(0..<viewModel.audioSegmentURLs.count, id: \.self) { i in
+                                            Text("Сегмент \(i + 1)").tag(i)
+                                        }
+                                    }
+                                    .frame(maxWidth: 150)
+                                }
+
+                                Button {
+                                    Task { await viewModel.previewDemo() }
+                                } label: {
+                                    if viewModel.isDemoProcessing {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                        Text("Обработка...")
+                                    } else {
+                                        Label("Прослушать демо", systemImage: "play.fill")
+                                    }
+                                }
+                                .disabled(
+                                    viewModel.isDemoProcessing ||
+                                    viewModel.modelPath.isEmpty ||
+                                    viewModel.audioSegmentURLs.isEmpty
+                                )
+
+                                Button {
+                                    Task { await viewModel.stopDemo() }
+                                } label: {
+                                    Image(systemName: "stop.fill")
+                                }
+
+                                if viewModel.audioSegmentURLs.isEmpty {
+                                    Text("Сначала выполните озвучку (шаг 3)")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -163,7 +240,9 @@ struct TimbreChangeStepView: View {
         viewModel: TimbreChangeViewModel(
             project: VoiceoverProject(title: "Test"),
             rvcService: MockRVCService(),
-            modelManager: MockModelManagerService()
+            modelManager: MockModelManagerService(),
+            audioEngine: MockAudioEngineService(),
+            notificationService: MockNotificationService()
         )
     )
     .frame(width: 700, height: 500)
