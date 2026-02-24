@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var projectToDelete: VoiceoverProject?
     @State private var showDeleteAlert = false
     @State private var voiceLibraryVM = VoiceLibraryViewModel()
+    @State private var isVoicesSectionExpanded = false
 
     private var filteredProjects: [VoiceoverProject] {
         allProjects.filter { project in
@@ -112,27 +113,35 @@ struct ContentView: View {
             }
 
             Section {
-                ForEach(voiceProfiles) { profile in
-                    VoiceProfileRow(profile: profile)
-                        .contextMenu {
-                            Button("Удалить", role: .destructive) {
-                                voiceLibraryVM.profileToDelete = profile
-                                voiceLibraryVM.showingDeleteAlert = true
+                DisclosureGroup(isExpanded: $isVoicesSectionExpanded) {
+                    ForEach(voiceProfiles) { profile in
+                        VoiceProfileRow(profile: profile)
+                            .contextMenu {
+                                Button("Удалить", role: .destructive) {
+                                    voiceLibraryVM.profileToDelete = profile
+                                    voiceLibraryVM.showingDeleteAlert = true
+                                }
                             }
-                        }
-                }
+                    }
 
-                Button {
-                    voiceLibraryVM.resetForm()
-                    voiceLibraryVM.showingCreateSheet = true
+                    Button {
+                        voiceLibraryVM.resetForm()
+                        voiceLibraryVM.showingCreateSheet = true
+                    } label: {
+                        Label("Добавить голос", systemImage: "plus")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                 } label: {
-                    Label("Добавить голос", systemImage: "plus")
-                        .font(.caption)
+                    Label {
+                        Text("Голоса")
+                    } icon: {
+                        Image(systemName: "waveform.circle.fill")
+                            .foregroundStyle(.purple)
+                    }
+                    .font(.subheadline.weight(.medium))
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            } header: {
-                Text("Голоса")
             }
         }
         .listStyle(.sidebar)

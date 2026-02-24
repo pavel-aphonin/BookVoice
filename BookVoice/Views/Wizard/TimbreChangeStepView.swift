@@ -14,10 +14,10 @@ struct TimbreChangeStepView: View {
     var body: some View {
         VStack(spacing: 24) {
             HStack {
-                Text("Изменение тембра (RVC)")
+                Text("Изменение тембра голоса")
                     .font(.title2.bold())
                 Spacer()
-                Toggle("Включить RVC", isOn: $viewModel.isEnabled)
+                Toggle("Включить изменение голоса", isOn: $viewModel.isEnabled)
                     .toggleStyle(.switch)
             }
 
@@ -49,16 +49,19 @@ struct TimbreChangeStepView: View {
 
                         // RVC Model (manual)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Или выберите модель вручную")
+                            Text("Или выберите файл голоса вручную")
                                 .font(.headline)
                             HStack {
                                 if viewModel.isLoadingModels {
                                     ProgressView()
                                         .controlSize(.small)
+                                    Text("Ищу сохранённые голоса\u{2026}")
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
                                 } else {
-                                    Picker("Модель", selection: $viewModel.modelPath) {
+                                    Picker("Голос", selection: $viewModel.modelPath) {
                                         if viewModel.availableModels.isEmpty {
-                                            Text("Нет доступных моделей").tag("")
+                                            Text("Выберите файл через \u{00AB}Обзор\u{00BB}").tag("")
                                         }
                                         ForEach(viewModel.availableModels, id: \.self) { model in
                                             Text(model).tag(model)
@@ -72,6 +75,11 @@ struct TimbreChangeStepView: View {
                                 } label: {
                                     Label("Обзор", systemImage: "folder")
                                 }
+                            }
+                            if viewModel.availableModels.isEmpty && !viewModel.isLoadingModels {
+                                Text("Если у вас нет файла голоса, сначала создайте его в разделе \u{00AB}Голоса\u{00BB} на боковой панели.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
                             }
                         }
 
@@ -218,9 +226,9 @@ struct TimbreChangeStepView: View {
             } else {
                 Spacer()
                 ContentUnavailableView(
-                    "RVC отключён",
+                    "Изменение голоса отключено",
                     systemImage: "waveform.slash",
-                    description: Text("Включите RVC, чтобы изменить тембр голоса аудиокниги.")
+                    description: Text("Включите переключатель выше, чтобы заменить голос озвучки на другой.")
                 )
                 Spacer()
             }

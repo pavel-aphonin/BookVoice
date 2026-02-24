@@ -6,6 +6,13 @@
 import SwiftData
 import Foundation
 
+enum VoiceTrainingStatus: Int, Codable {
+    case ready = 0       // Модель готова к использованию
+    case pending = 1     // Ожидает обучения
+    case training = 2    // Обучается
+    case failed = 3      // Ошибка обучения
+}
+
 @Model
 final class VoiceProfile {
     var id: UUID
@@ -17,6 +24,15 @@ final class VoiceProfile {
     var sampleAudioBookmark: Data?
     var createdAt: Date
     var tags: [String]
+    var trainingStatusRaw: Int
+
+    var trainingStatus: VoiceTrainingStatus {
+        get { VoiceTrainingStatus(rawValue: trainingStatusRaw) ?? .ready }
+        set { trainingStatusRaw = newValue.rawValue }
+    }
+
+    /// Модель готова к использованию
+    var isReady: Bool { trainingStatus == .ready && !modelFilePath.isEmpty }
 
     init(name: String, modelFilePath: String) {
         self.id = UUID()
@@ -25,6 +41,9 @@ final class VoiceProfile {
         self.modelFilePath = modelFilePath
         self.createdAt = Date()
         self.tags = []
+        self.trainingStatusRaw = modelFilePath.isEmpty
+            ? VoiceTrainingStatus.pending.rawValue
+            : VoiceTrainingStatus.ready.rawValue
     }
 
     /// Разрешает security-scoped доступ к файлу модели

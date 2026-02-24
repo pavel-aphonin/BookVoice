@@ -12,29 +12,64 @@ struct VoiceProfileRow: View {
         HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 6)
                 .fill(.quaternary)
-                .frame(width: 36, height: 36)
+                .frame(width: 28, height: 28)
                 .overlay {
-                    Image(systemName: "waveform.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.purple)
+                    statusIcon
                 }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name)
+                    .font(.subheadline)
                     .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    if !profile.descriptionText.isEmpty {
-                        Text(profile.descriptionText)
-                            .lineLimit(1)
-                    } else {
-                        Text("RVC-модель")
-                    }
-                }
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+                Text(statusText)
+                    .font(.caption2)
+                    .foregroundStyle(statusColor)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 1)
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        switch profile.trainingStatus {
+        case .ready:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.green)
+        case .pending:
+            Image(systemName: "clock.fill")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+        case .training:
+            ProgressView()
+                .controlSize(.mini)
+        case .failed:
+            Image(systemName: "xmark.circle.fill")
+                .font(.caption2)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private var statusText: String {
+        switch profile.trainingStatus {
+        case .ready:
+            profile.descriptionText.isEmpty ? "Готов" : profile.descriptionText
+        case .pending:
+            "Ожидает обучения"
+        case .training:
+            "Обучается\u{2026}"
+        case .failed:
+            "Ошибка обучения"
+        }
+    }
+
+    private var statusColor: Color {
+        switch profile.trainingStatus {
+        case .ready: .gray
+        case .pending: .orange
+        case .training: .gray
+        case .failed: .red
+        }
     }
 }

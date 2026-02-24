@@ -29,7 +29,7 @@ final class WizardViewModel {
         switch currentStep {
         case 1: return modelSettings.isValid
         case 2: return textUpload.isValid
-        case 3: return true
+        case 3: return voiceover.isReady && !voiceover.isSynthesizing
         case 4: return timbreChange.isValid && !timbreChange.isConverting
         case 5: return false
         default: return false
