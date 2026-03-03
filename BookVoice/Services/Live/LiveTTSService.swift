@@ -10,6 +10,8 @@ import Foundation
 actor LiveTTSService: TTSService {
 
     private static let requestTimeout: TimeInterval = 30
+    /// Qwen models need extra time: first request downloads & loads model (3-5 min)
+    private static let qwenFirstRequestTimeout: TimeInterval = 600  // 10 min
     private var isCancelled = false
 
     // MARK: - Synthesize
@@ -23,7 +25,8 @@ actor LiveTTSService: TTSService {
         emotion: String?,
         apiURL: String,
         apiPort: Int,
-        outputURL: URL
+        outputURL: URL,
+        options: TTSGenerationOptions = .default
     ) async throws -> URL {
         guard !isCancelled else { throw TTSError.cancelled }
 
@@ -44,7 +47,8 @@ actor LiveTTSService: TTSService {
                 speed: speed,
                 pitch: pitch,
                 emotion: emotion,
-                outputURL: outputURL
+                outputURL: outputURL,
+                options: options
             )
 
         case .qwenCloud:
@@ -82,6 +86,7 @@ actor LiveTTSService: TTSService {
         apiURL: String,
         apiPort: Int,
         outputDirectory: URL,
+        options: TTSGenerationOptions = .default,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> [URL] {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
@@ -106,7 +111,8 @@ actor LiveTTSService: TTSService {
                 emotion: emotion,
                 apiURL: apiURL,
                 apiPort: apiPort,
-                outputURL: outputURL
+                outputURL: outputURL,
+                options: options
             )
             results.append(url)
             progressHandler(Double(i + 1) / Double(segments.count))
@@ -282,7 +288,8 @@ actor LiveTTSService: TTSService {
         speed: Double,
         pitch: Double,
         emotion: String?,
-        outputURL: URL
+        outputURL: URL,
+        options: TTSGenerationOptions = .default
     ) async throws -> URL {
         let providerName: String
         switch provider {
@@ -300,15 +307,66 @@ actor LiveTTSService: TTSService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+        // Qwen: first request loads the model (3-5 min download + load), subsequent ~10-30s
+        // Silero/Kokoro: much faster
+        if provider == .qwenLocal {
+            request.timeoutInterval = max(Self.qwenFirstRequestTimeout, Double(text.count))
+        } else {
+            request.timeoutInterval = max(Self.requestTimeout * 2, Double(text.count) / 2)
+        }
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "text": text,
             "model": modelName,
             "speed": speed,
             "pitch": pitch,
             "emotion": emotion ?? "",
         ]
+
+        // Add extended generation options
+        if !options.speaker.isEmpty {
+            body["speaker"] = options.speaker
+        }
+        if !options.language.isEmpty {
+            body["language"] = options.language
+        }
+        if options.temperature > 0 {
+            body["temperature"] = options.temperature
+        }
+        if options.topK > 0 {
+            body["top_k"] = options.topK
+        }
+        if options.topP > 0 {
+            body["top_p"] = options.topP
+        }
+        if options.repetitionPenalty > 0 {
+            body["repetition_penalty"] = options.repetitionPenalty
+        }
+        body["do_sample"] = options.doSample
+        if options.maxNewTokens > 0 {
+            body["max_new_tokens"] = options.maxNewTokens
+        }
+        // Voice cloning fields (Qwen Base models)
+        if !options.referenceAudioPath.isEmpty {
+            body["ref_audio_path"] = options.referenceAudioPath
+        }
+        if !options.referenceText.isEmpty {
+            body["ref_text"] = options.referenceText
+        }
+        if options.xVectorOnlyMode {
+            body["x_vector_only_mode"] = true
+        }
+        // Subtalker parameters (voice cloning)
+        if options.subtalkerTemperature > 0 {
+            body["subtalker_temperature"] = options.subtalkerTemperature
+        }
+        if options.subtalkerTopK > 0 {
+            body["subtalker_top_k"] = options.subtalkerTopK
+        }
+        if options.subtalkerTopP > 0 {
+            body["subtalker_top_p"] = options.subtalkerTopP
+        }
+        body["subtalker_dosample"] = options.subtalkerDoSample
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -434,9 +492,15 @@ actor LiveTTSService: TTSService {
         } catch let error as URLError {
             switch error.code {
             case .timedOut:
-                throw TTSError.connectionFailed("Request timed out")
+                throw TTSError.connectionFailed(
+                    "Превышено время ожидания ответа от TTS-сервера. "
+                    + "При первом запуске модель загружается в память — это может занять несколько минут. "
+                    + "Попробуйте ещё раз."
+                )
             case .cannotConnectToHost, .networkConnectionLost:
-                throw TTSError.connectionFailed("Cannot connect to server: \(error.localizedDescription)")
+                throw TTSError.connectionFailed(
+                    "Не удалось подключиться к TTS-серверу: \(error.localizedDescription)"
+                )
             default:
                 throw TTSError.connectionFailed(error.localizedDescription)
             }

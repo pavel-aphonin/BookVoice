@@ -726,11 +726,7 @@ private struct ProviderGuideSheet: View {
             }
         }
         .frame(width: 520, height: 620)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
-        }
+        .presentationBackground(.ultraThinMaterial)
     }
 
     private func providerCard(
@@ -869,11 +865,7 @@ private struct PromptGuideSheet: View {
             }
         }
         .frame(width: 480, height: 560)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
-        }
+        .presentationBackground(.ultraThinMaterial)
     }
 
     private func sectionTitle(_ text: String) -> some View {

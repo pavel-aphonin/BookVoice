@@ -15,7 +15,8 @@ nonisolated final class MockTTSService: TTSService, Sendable {
         emotion: String?,
         apiURL: String,
         apiPort: Int,
-        outputURL: URL
+        outputURL: URL,
+        options: TTSGenerationOptions = .default
     ) async throws -> URL {
         let wordCount = text.split(separator: " ").count
         let delayMs = min(Double(wordCount) * 20, 2000)
@@ -37,6 +38,7 @@ nonisolated final class MockTTSService: TTSService, Sendable {
         apiURL: String,
         apiPort: Int,
         outputDirectory: URL,
+        options: TTSGenerationOptions = .default,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> [URL] {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
@@ -71,7 +73,7 @@ nonisolated final class MockTTSService: TTSService, Sendable {
         case .silero: return ["v3_en", "v3_de", "v3_fr", "v4_ru"]
         case .elevenLabs: return ["Rachel", "Domi", "Bella", "Antoni", "Elli"]
         case .kokoro: return ["kokoro-v1", "kokoro-v2"]
-        case .qwenLocal: return ["0.6B-CustomVoice", "1.7B-CustomVoice", "1.7B-Base"]
+        case .qwenLocal: return ["0.6B-Base", "0.6B-CustomVoice", "1.7B-Base", "1.7B-CustomVoice", "1.7B-VoiceDesign"]
         case .qwenCloud: return ["qwen3-tts-flash"]
         case .custom: return ["default"]
         }

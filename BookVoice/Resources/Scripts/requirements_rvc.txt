@@ -1,2 +1,2 @@
-rvc-python>=0.2.0
+rvc-python>=0.1.0
 torch>=2.0.0

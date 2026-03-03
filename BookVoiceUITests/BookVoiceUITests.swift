@@ -9,33 +9,65 @@ import XCTest
 
 final class BookVoiceUITests: XCTestCase {
 
+    private var app: XCUIApplication!
+
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
+        app = XCUIApplication()
+        app.launch()
     }
 
     override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+        app = nil
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
+    func testLaunch_displaysStartScreen() throws {
+        let screen = StartScreenPage(app: app)
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertTrue(screen.title.waitForExistence(timeout: 5))
+        XCTAssertTrue(screen.subtitle.exists)
+        XCTAssertTrue(screen.newVoiceoverButton.exists)
     }
 
     @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+    func testCreateProject_opensWizardContainer() throws {
+        let start = StartScreenPage(app: app)
+        XCTAssertTrue(start.newVoiceoverButton.waitForExistence(timeout: 5))
+        start.newVoiceoverButton.click()
+
+        let wizard = WizardPage(app: app)
+        XCTAssertTrue(wizard.closeButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(wizard.nextButton.exists)
+        XCTAssertTrue(wizard.modelStep.exists)
     }
+
+    @MainActor
+    func testCloseWizardOnStepOne_returnsToStartScreen() throws {
+        let start = StartScreenPage(app: app)
+        XCTAssertTrue(start.newVoiceoverButton.waitForExistence(timeout: 5))
+        start.newVoiceoverButton.click()
+
+        let wizard = WizardPage(app: app)
+        XCTAssertTrue(wizard.closeButton.waitForExistence(timeout: 5))
+        wizard.closeButton.click()
+
+        XCTAssertTrue(start.newVoiceoverButton.waitForExistence(timeout: 5))
+    }
+}
+
+private struct StartScreenPage {
+    let app: XCUIApplication
+
+    var title: XCUIElement { app.staticTexts["BookVoice"] }
+    var subtitle: XCUIElement { app.staticTexts["Превратите книги в аудиокниги"] }
+    var newVoiceoverButton: XCUIElement { app.buttons["Новая озвучка"] }
+}
+
+private struct WizardPage {
+    let app: XCUIApplication
+
+    var closeButton: XCUIElement { app.buttons["Закрыть"] }
+    var nextButton: XCUIElement { app.buttons["Далее"] }
+    var modelStep: XCUIElement { app.staticTexts["Модель"] }
 }

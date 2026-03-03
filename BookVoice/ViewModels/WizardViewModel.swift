@@ -121,6 +121,8 @@ final class WizardViewModel {
     private func prepareStep(_ step: Int) async {
         switch step {
         case 3:
+            // Обновить провайдер/API из проекта (мог измениться на шаге 1)
+            voiceover.updateFromProject(project)
             await voiceover.loadModels()
             let segments = await textUpload.allSegments()
             voiceover.prepareSegments(segments)

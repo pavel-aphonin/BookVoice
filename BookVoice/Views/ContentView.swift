@@ -79,24 +79,28 @@ struct ContentView: View {
         .sheet(isPresented: $voiceLibraryVM.showingCreateSheet) {
             VoiceProfileCreateSheet(viewModel: voiceLibraryVM)
         }
-        .alert("Переименовать проект", isPresented: $showRenameAlert) {
-            TextField("Название", text: $renameText)
-            Button("Отмена", role: .cancel) {}
-            Button("Сохранить") {
-                if let project = renamingProject, !renameText.isEmpty {
-                    project.title = renameText
-                    project.updatedAt = Date()
+        .sheet(isPresented: $showRenameAlert) {
+            RenameSheet(
+                title: "Переименовать проект",
+                name: $renameText,
+                onSave: {
+                    if let project = renamingProject, !renameText.isEmpty {
+                        project.title = renameText
+                        project.updatedAt = Date()
+                    }
                 }
-            }
+            )
         }
-        .alert("Переименовать голос", isPresented: $showRenameVoiceAlert) {
-            TextField("Название", text: $renameText)
-            Button("Отмена", role: .cancel) {}
-            Button("Сохранить") {
-                if let voice = renamingVoice, !renameText.isEmpty {
-                    voice.name = renameText
+        .sheet(isPresented: $showRenameVoiceAlert) {
+            RenameSheet(
+                title: "Переименовать голос",
+                name: $renameText,
+                onSave: {
+                    if let voice = renamingVoice, !renameText.isEmpty {
+                        voice.name = renameText
+                    }
                 }
-            }
+            )
         }
         .alert("Удалить голосовой профиль?", isPresented: $voiceLibraryVM.showingDeleteAlert) {
             Button("Отмена", role: .cancel) {}
@@ -126,19 +130,16 @@ struct ContentView: View {
                 DisclosureGroup(isExpanded: $isProjectsSectionExpanded) {
                     if filteredProjects.isEmpty {
                         if allProjects.isEmpty {
-                            HStack {
-                                Spacer()
-                                VStack(spacing: 6) {
-                                    Image(systemName: "book.closed")
-                                        .font(.title2)
-                                        .foregroundStyle(.quaternary)
-                                    Text("Нет проектов")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.vertical, 12)
-                                Spacer()
+                            VStack(spacing: 10) {
+                                Image(systemName: "book.closed")
+                                    .font(.system(size: 36))
+                                    .foregroundStyle(.quaternary)
+                                Text("Нет проектов")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
                         } else {
                             Text("Ничего не найдено по запросу «\(searchText)»")
                                 .font(.caption)
@@ -318,6 +319,45 @@ private struct SidebarProjectRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Rename Sheet
+
+private struct RenameSheet: View {
+    let title: String
+    @Binding var name: String
+    var onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Название")
+                    .font(.callout.weight(.medium))
+                TextField("", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        if !name.isEmpty { onSave(); dismiss() }
+                    }
+            }
+
+            HStack {
+                Button("Отмена") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                Spacer()
+                Button("Сохранить") { onSave(); dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(name.isEmpty)
+                    .keyboardShortcut(.return, modifiers: [])
+            }
+        }
+        .padding(24)
+        .frame(width: 340)
+        .presentationBackground(.ultraThinMaterial)
     }
 }
 

@@ -67,15 +67,32 @@ actor LiveAudioEngineService: AudioEngineService {
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> URL {
         guard !files.isEmpty else {
-            throw AudioEngineError.concatenationFailed("No input files provided")
+            throw AudioEngineError.concatenationFailed("Нет аудиофайлов для склейки")
+        }
+
+        // Validate all input files exist and are non-empty
+        let validFiles = files.filter { url in
+            let fm = FileManager.default
+            guard fm.fileExists(atPath: url.path) else { return false }
+            let size = (try? fm.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+            return size > 44 // Minimum WAV header is 44 bytes
+        }
+
+        guard !validFiles.isEmpty else {
+            throw AudioEngineError.concatenationFailed(
+                "Все аудиофайлы пусты или повреждены (\(files.count) файлов). "
+                + "Попробуйте заново выполнить озвучку на шаге 3."
+            )
         }
 
         // Read the first file to determine the processing format
         let firstFile: AVAudioFile
         do {
-            firstFile = try AVAudioFile(forReading: files[0])
+            firstFile = try AVAudioFile(forReading: validFiles[0])
         } catch {
-            throw AudioEngineError.concatenationFailed("Cannot read first audio file: \(error.localizedDescription)")
+            throw AudioEngineError.concatenationFailed(
+                "Не удалось прочитать аудиофайл \(validFiles[0].lastPathComponent): \(error.localizedDescription)"
+            )
         }
 
         let processingFormat = firstFile.processingFormat
@@ -86,12 +103,14 @@ actor LiveAudioEngineService: AudioEngineService {
         var totalFrames: AVAudioFrameCount = 0
         var audioFiles: [AVAudioFile] = [firstFile]
 
-        for i in 1..<files.count {
+        for i in 1..<validFiles.count {
             do {
-                let file = try AVAudioFile(forReading: files[i])
+                let file = try AVAudioFile(forReading: validFiles[i])
                 audioFiles.append(file)
             } catch {
-                throw AudioEngineError.concatenationFailed("Cannot read audio file \(files[i].lastPathComponent): \(error.localizedDescription)")
+                throw AudioEngineError.concatenationFailed(
+                    "Не удалось прочитать аудиофайл \(validFiles[i].lastPathComponent): \(error.localizedDescription)"
+                )
             }
         }
 
@@ -372,7 +391,9 @@ actor LiveAudioEngineService: AudioEngineService {
             } catch let e as AudioEngineError {
                 throw e
             } catch {
-                throw AudioEngineError.concatenationFailed("Failed to process file \(i): \(error.localizedDescription)")
+                throw AudioEngineError.concatenationFailed(
+                    "Ошибка обработки сегмента \(i + 1): \(error.localizedDescription)"
+                )
             }
 
             progressHandler(Double(i + 1) / Double(audioFiles.count))

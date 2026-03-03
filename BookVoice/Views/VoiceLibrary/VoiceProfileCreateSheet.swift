@@ -124,11 +124,7 @@ struct VoiceProfileCreateSheet: View {
             .padding(.vertical, 16)
         }
         .frame(width: 560, height: 580)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea()
-        }
+        .presentationBackground(.ultraThinMaterial)
     }
 
     // MARK: - From Sample Section

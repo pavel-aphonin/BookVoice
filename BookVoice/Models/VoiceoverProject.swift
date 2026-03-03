@@ -37,6 +37,24 @@ final class VoiceoverProject {
     var ttsSpeed: Double
     var ttsPitch: Double
     var ttsEmotion: String?
+    // Расширенные параметры (Qwen)
+    var ttsSpeaker: String?
+    var ttsLanguage: String?
+    var ttsTemperature: Double?
+    var ttsTopK: Int?
+    var ttsTopP: Double?
+    var ttsRepetitionPenalty: Double?
+    var ttsDoSample: Bool?
+    var ttsMaxNewTokens: Int?
+    // Voice cloning reference (Qwen Base models)
+    var ttsReferenceAudioBookmark: Data?
+    var ttsReferenceText: String?
+    var ttsXVectorOnlyMode: Bool?
+    // Subtalker parameters (voice cloning)
+    var ttsSubtalkerTemperature: Double?
+    var ttsSubtalkerTopK: Int?
+    var ttsSubtalkerTopP: Double?
+    var ttsSubtalkerDoSample: Bool?
 
     @Relationship(deleteRule: .cascade, inverse: \AudioSegment.project)
     var audioSegments: [AudioSegment]
@@ -85,6 +103,19 @@ final class VoiceoverProject {
 
         self.ttsSpeed = AppConstants.defaultSpeed
         self.ttsPitch = AppConstants.defaultPitch
+        self.ttsTemperature = -1   // -1 = авто
+        self.ttsTopK = -1
+        self.ttsTopP = -1
+        self.ttsRepetitionPenalty = -1
+        self.ttsDoSample = true
+        self.ttsMaxNewTokens = nil
+        self.ttsReferenceAudioBookmark = nil
+        self.ttsReferenceText = nil
+        self.ttsXVectorOnlyMode = false
+        self.ttsSubtalkerTemperature = nil
+        self.ttsSubtalkerTopK = nil
+        self.ttsSubtalkerTopP = nil
+        self.ttsSubtalkerDoSample = nil
         self.audioSegments = []
 
         self.rvcEnabled = false
