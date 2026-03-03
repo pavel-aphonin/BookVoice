@@ -245,6 +245,19 @@ struct BookVoiceTests {
     }
 
     @Test
+    func modelSettings_insertDefaultPrompt_setsDefaultAndFlag() {
+        let project = VoiceoverProject()
+        let vm = ModelSettingsViewModel(project: project, ttsService: MockTTSService())
+
+        vm.systemPrompt = "custom"
+        #expect(vm.hasDefaultPrompt == false)
+
+        vm.insertDefaultPrompt()
+        #expect(vm.systemPrompt == ModelSettingsViewModel.defaultSystemPrompt)
+        #expect(vm.hasDefaultPrompt == true)
+    }
+
+    @Test
     func wizard_canGoForward_step3_requiresReadyAndNotSynthesizing() {
         let project = VoiceoverProject()
         let wizard = WizardViewModel(project: project, services: ServiceContainer(useMocks: true))
@@ -281,6 +294,20 @@ struct BookVoiceTests {
     }
 
     @Test
+    func wizard_goToStep_allowsVisitedStepsAndBlocksFutureStep() {
+        let project = VoiceoverProject()
+        project.currentStep = 2
+        let wizard = WizardViewModel(project: project, services: ServiceContainer(useMocks: true))
+        wizard.currentStep = 2
+
+        wizard.goToStep(1)
+        #expect(wizard.currentStep == 1)
+
+        wizard.goToStep(4)
+        #expect(wizard.currentStep == 1)
+    }
+
+    @Test
     func serviceContainer_useMocks_usesMockServices() {
         let container = ServiceContainer(useMocks: true)
 
@@ -289,6 +316,70 @@ struct BookVoiceTests {
         #expect(container.rvc is MockRVCService)
         #expect(container.modelManager is MockModelManagerService)
         #expect(container.notification is MockNotificationService)
+    }
+
+    @Test
+    func timbreChange_isValid_dependsOnEnabledAndModelPath() {
+        let project = VoiceoverProject()
+        let vm = TimbreChangeViewModel(
+            project: project,
+            rvcService: MockRVCService(),
+            modelManager: MockModelManagerService(),
+            audioEngine: MockAudioEngineService(),
+            notificationService: MockNotificationService()
+        )
+
+        vm.isEnabled = false
+        vm.modelPath = ""
+        #expect(vm.isValid == true)
+
+        vm.isEnabled = true
+        vm.modelPath = ""
+        #expect(vm.isValid == false)
+
+        vm.modelPath = "voice.pth"
+        #expect(vm.isValid == true)
+    }
+
+    @Test
+    func postProcessing_canExport_dependsOnTitle() {
+        let project = VoiceoverProject()
+        let vm = PostProcessingViewModel(
+            project: project,
+            audioEngine: MockAudioEngineService(),
+            notificationService: MockNotificationService()
+        )
+
+        vm.metadataTitle = ""
+        #expect(vm.canExport == false)
+
+        vm.metadataTitle = "Book"
+        #expect(vm.canExport == true)
+    }
+
+    @Test
+    func textUpload_saveToProject_persistsCurrentFields() {
+        let project = VoiceoverProject()
+        let vm = TextUploadViewModel(project: project, textService: MockTextProcessingService())
+        vm.rawText = "hello"
+        vm.fileName = "book.txt"
+        vm.strategy = .fixedLength
+        vm.fixedLength = 111
+
+        vm.saveToProject(project)
+
+        #expect(project.rawText == "hello")
+        #expect(project.sourceFileName == "book.txt")
+        #expect(project.segmentationStrategy == .fixedLength)
+        #expect(project.fixedSegmentLength == 111)
+        #expect(project.status == .textLoaded)
+    }
+
+    @Test
+    func settings_formatFileSize_returnsReadableString() {
+        let vm = SettingsViewModel(modelManager: MockModelManagerService())
+        let value = vm.formatFileSize(1_024)
+        #expect(value.isEmpty == false)
     }
 
     @Test

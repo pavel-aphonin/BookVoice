@@ -54,6 +54,39 @@ final class BookVoiceUITests: XCTestCase {
 
         XCTAssertTrue(start.newVoiceoverButton.waitForExistence(timeout: 5))
     }
+
+    @MainActor
+    func testCreateProjectAndCloseWizard_projectAppearsInSidebar() throws {
+        let start = StartScreenPage(app: app)
+        XCTAssertTrue(start.newVoiceoverButton.waitForExistence(timeout: 5))
+        start.newVoiceoverButton.click()
+
+        let wizard = WizardPage(app: app)
+        XCTAssertTrue(wizard.closeButton.waitForExistence(timeout: 5))
+        wizard.closeButton.click()
+
+        let sidebar = SidebarPage(app: app)
+        XCTAssertTrue(sidebar.projectRow("Новый проект").waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testOpenProjectFromSidebar_reopensWizard() throws {
+        let start = StartScreenPage(app: app)
+        XCTAssertTrue(start.newVoiceoverButton.waitForExistence(timeout: 5))
+        start.newVoiceoverButton.click()
+
+        let wizard = WizardPage(app: app)
+        XCTAssertTrue(wizard.closeButton.waitForExistence(timeout: 5))
+        wizard.closeButton.click()
+
+        let sidebar = SidebarPage(app: app)
+        let project = sidebar.projectRow("Новый проект")
+        XCTAssertTrue(project.waitForExistence(timeout: 5))
+        project.click()
+
+        XCTAssertTrue(wizard.closeButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(wizard.nextButton.exists)
+    }
 }
 
 private struct StartScreenPage {
@@ -70,4 +103,12 @@ private struct WizardPage {
     var closeButton: XCUIElement { app.buttons["Закрыть"] }
     var nextButton: XCUIElement { app.buttons["Далее"] }
     var modelStep: XCUIElement { app.staticTexts["Модель"] }
+}
+
+private struct SidebarPage {
+    let app: XCUIApplication
+
+    func projectRow(_ title: String) -> XCUIElement {
+        app.staticTexts[title]
+    }
 }
