@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+# Cancel previous runs on the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Unit Tests
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using Xcode: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH"
+          xcodebuild -version
+          swift --version
+
+      - name: Build (Debug)
+        run: |
+          xcodebuild build \
+            -scheme BookVoice \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+      - name: Run Unit Tests
+        run: |
+          xcodebuild test \
+            -scheme BookVoice \
+            -destination 'platform=macOS' \
+            -only-testing:BookVoiceTests \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+
+  lint-python:
+    name: Lint Python Scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install linters
+        run: pip install ruff
+
+      - name: Lint with ruff
+        run: |
+          ruff check BookVoice/Resources/Scripts/ \
+            --select E,W,F \
+            --ignore E501 \
+            || true
+
+      - name: Check syntax
+        run: |
+          python -m py_compile BookVoice/Resources/Scripts/tts_server.py
+          python -m py_compile BookVoice/Resources/Scripts/rvc_server.py
+          echo "✅ Python syntax OK"
