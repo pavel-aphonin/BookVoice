@@ -29,14 +29,22 @@ final class WizardViewModel {
         switch currentStep {
         case 1: return modelSettings.isValid
         case 2: return textUpload.isValid
-        case 3: return true
-        case 4: return timbreChange.isValid
+        case 3: return voiceover.isReady && !voiceover.isSynthesizing
+        case 4: return timbreChange.isValid && !timbreChange.isConverting
         case 5: return false
         default: return false
         }
     }
 
     var isLastStep: Bool { currentStep == totalSteps }
+
+    /// Финальные аудиофайлы для экспорта: RVC-конвертированные (если включены) или TTS-оригиналы
+    var finalAudioURLs: [URL] {
+        if timbreChange.isEnabled && !timbreChange.convertedAudioURLs.isEmpty {
+            return timbreChange.convertedAudioURLs
+        }
+        return voiceover.segmentStates.compactMap { $0.audioURL }
+    }
 
     init(project: VoiceoverProject, services: ServiceContainer) {
         self.project = project
@@ -52,16 +60,20 @@ final class WizardViewModel {
         )
         self.voiceover = VoiceoverViewModel(
             project: project,
-            ttsService: services.tts
+            ttsService: services.tts,
+            notificationService: services.notification
         )
         self.timbreChange = TimbreChangeViewModel(
             project: project,
             rvcService: services.rvc,
-            modelManager: services.modelManager
+            modelManager: services.modelManager,
+            audioEngine: services.audioEngine,
+            notificationService: services.notification
         )
         self.postProcessing = PostProcessingViewModel(
             project: project,
-            audioEngine: services.audioEngine
+            audioEngine: services.audioEngine,
+            notificationService: services.notification
         )
     }
 
@@ -109,11 +121,15 @@ final class WizardViewModel {
     private func prepareStep(_ step: Int) async {
         switch step {
         case 3:
+            // Обновить провайдер/API из проекта (мог измениться на шаге 1)
+            voiceover.updateFromProject(project)
             await voiceover.loadModels()
             let segments = await textUpload.allSegments()
             voiceover.prepareSegments(segments)
         case 4:
             await timbreChange.loadModels()
+            // Передать TTS-аудио для RVC-конвертации
+            timbreChange.audioSegmentURLs = voiceover.segmentStates.compactMap { $0.audioURL }
         default:
             break
         }

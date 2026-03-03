@@ -13,6 +13,8 @@ struct ContentView: View {
     @Environment(ServiceContainer.self) private var services
     @Query(sort: \VoiceoverProject.updatedAt, order: .reverse)
     private var allProjects: [VoiceoverProject]
+    @Query(sort: \VoiceProfile.createdAt, order: .reverse)
+    private var voiceProfiles: [VoiceProfile]
 
     @State private var activeProject: VoiceoverProject?
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -20,6 +22,14 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var projectToDelete: VoiceoverProject?
     @State private var showDeleteAlert = false
+    @State private var voiceLibraryVM = VoiceLibraryViewModel()
+    @State private var isVoicesSectionExpanded = false
+    @State private var isProjectsSectionExpanded = true
+    @State private var renamingProject: VoiceoverProject?
+    @State private var renamingVoice: VoiceProfile?
+    @State private var renameText = ""
+    @State private var showRenameAlert = false
+    @State private var showRenameVoiceAlert = false
 
     private var filteredProjects: [VoiceoverProject] {
         allProjects.filter { project in
@@ -66,6 +76,44 @@ struct ContentView: View {
         .onAppear {
             audioPlayer = AudioPlayerViewModel(audioEngine: services.audioEngine)
         }
+        .sheet(isPresented: $voiceLibraryVM.showingCreateSheet) {
+            VoiceProfileCreateSheet(viewModel: voiceLibraryVM)
+        }
+        .sheet(isPresented: $showRenameAlert) {
+            RenameSheet(
+                title: "Переименовать проект",
+                name: $renameText,
+                onSave: {
+                    if let project = renamingProject, !renameText.isEmpty {
+                        project.title = renameText
+                        project.updatedAt = Date()
+                    }
+                }
+            )
+        }
+        .sheet(isPresented: $showRenameVoiceAlert) {
+            RenameSheet(
+                title: "Переименовать голос",
+                name: $renameText,
+                onSave: {
+                    if let voice = renamingVoice, !renameText.isEmpty {
+                        voice.name = renameText
+                    }
+                }
+            )
+        }
+        .alert("Удалить голосовой профиль?", isPresented: $voiceLibraryVM.showingDeleteAlert) {
+            Button("Отмена", role: .cancel) {}
+            Button("Удалить", role: .destructive) {
+                if let profile = voiceLibraryVM.profileToDelete {
+                    voiceLibraryVM.deleteProfile(profile, from: modelContext)
+                }
+            }
+        } message: {
+            if let profile = voiceLibraryVM.profileToDelete {
+                Text("Вы уверены, что хотите удалить голос \"\(profile.name)\"?")
+            }
+        }
     }
 
     // MARK: - Sidebar
@@ -73,41 +121,95 @@ struct ContentView: View {
     @ViewBuilder
     private var sidebar: some View {
         List {
-            TextField("Поиск проектов...", text: $searchText)
+            TextField("Поиск...", text: $searchText)
                 .textFieldStyle(.roundedBorder)
                 .padding(.bottom, 4)
 
-            Section("Недавние проекты") {
-                ForEach(filteredProjects) { project in
-                    SidebarProjectRow(project: project)
-                        .contentShape(Rectangle())
-                        .onTapGesture { openProject(project) }
-                        .contextMenu {
-                            Button("Открыть") { openProject(project) }
-                            Divider()
-                            Button("Удалить", role: .destructive) {
-                                projectToDelete = project
-                                showDeleteAlert = true
+            // Projects section (expanded by default)
+            Section {
+                DisclosureGroup(isExpanded: $isProjectsSectionExpanded) {
+                    if filteredProjects.isEmpty {
+                        if allProjects.isEmpty {
+                            VStack(spacing: 10) {
+                                Image(systemName: "book.closed")
+                                    .font(.system(size: 36))
+                                    .foregroundStyle(.quaternary)
+                                Text("Нет проектов")
+                                    .font(.title3)
+                                    .foregroundStyle(.secondary)
                             }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                        } else {
+                            Text("Ничего не найдено по запросу «\(searchText)»")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.vertical, 8)
                         }
+                    } else {
+                        ForEach(filteredProjects) { project in
+                            SidebarProjectRow(project: project)
+                                .contentShape(Rectangle())
+                                .onTapGesture { openProject(project) }
+                                .contextMenu {
+                                    Button("Открыть") { openProject(project) }
+                                    Button("Переименовать") { startRenamingProject(project) }
+                                    Divider()
+                                    Button("Удалить", role: .destructive) {
+                                        projectToDelete = project
+                                        showDeleteAlert = true
+                                    }
+                                }
+                        }
+                    }
+                } label: {
+                    Label {
+                        Text("Проекты")
+                    } icon: {
+                        Image(systemName: "book.fill")
+                            .foregroundStyle(.blue)
+                    }
+                    .font(.subheadline.weight(.medium))
+                }
+            }
+
+            // Voices section (collapsed by default)
+            Section {
+                DisclosureGroup(isExpanded: $isVoicesSectionExpanded) {
+                    ForEach(voiceProfiles) { profile in
+                        VoiceProfileRow(profile: profile)
+                            .contextMenu {
+                                Button("Переименовать") { startRenamingVoice(profile) }
+                                Divider()
+                                Button("Удалить", role: .destructive) {
+                                    voiceLibraryVM.profileToDelete = profile
+                                    voiceLibraryVM.showingDeleteAlert = true
+                                }
+                            }
+                    }
+
+                    Button {
+                        voiceLibraryVM.resetForm()
+                        voiceLibraryVM.showingCreateSheet = true
+                    } label: {
+                        Label("Добавить голос", systemImage: "plus")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                } label: {
+                    Label {
+                        Text("Голоса")
+                    } icon: {
+                        Image(systemName: "waveform.circle.fill")
+                            .foregroundStyle(.purple)
+                    }
+                    .font(.subheadline.weight(.medium))
                 }
             }
         }
         .listStyle(.sidebar)
-        .overlay {
-            if filteredProjects.isEmpty {
-                if allProjects.isEmpty {
-                    ContentUnavailableView(
-                        "Нет проектов",
-                        systemImage: "waveform",
-                        description: Text("Создайте первую озвучку.")
-                    )
-                } else {
-                    ContentUnavailableView.search(text: searchText)
-                }
-            }
-        }
-        .navigationTitle("Проекты")
+        .navigationTitle("BookVoice")
     }
 
     // MARK: - Detail
@@ -162,6 +264,18 @@ struct ContentView: View {
         modelContext.insert(project)
         openProject(project)
     }
+
+    private func startRenamingProject(_ project: VoiceoverProject) {
+        renamingProject = project
+        renameText = project.title
+        showRenameAlert = true
+    }
+
+    private func startRenamingVoice(_ voice: VoiceProfile) {
+        renamingVoice = voice
+        renameText = voice.name
+        showRenameVoiceAlert = true
+    }
 }
 
 // MARK: - Sidebar Row
@@ -205,6 +319,45 @@ private struct SidebarProjectRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Rename Sheet
+
+private struct RenameSheet: View {
+    let title: String
+    @Binding var name: String
+    var onSave: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text(title)
+                .font(.title3.weight(.semibold))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Название")
+                    .font(.callout.weight(.medium))
+                TextField("", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        if !name.isEmpty { onSave(); dismiss() }
+                    }
+            }
+
+            HStack {
+                Button("Отмена") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                Spacer()
+                Button("Сохранить") { onSave(); dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(name.isEmpty)
+                    .keyboardShortcut(.return, modifiers: [])
+            }
+        }
+        .padding(24)
+        .frame(width: 340)
+        .presentationBackground(.ultraThinMaterial)
     }
 }
 

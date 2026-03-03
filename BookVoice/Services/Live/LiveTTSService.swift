@@ -10,6 +10,8 @@ import Foundation
 actor LiveTTSService: TTSService {
 
     private static let requestTimeout: TimeInterval = 30
+    /// Qwen models need extra time: first request downloads & loads model (3-5 min)
+    private static let qwenFirstRequestTimeout: TimeInterval = 600  // 10 min
     private var isCancelled = false
 
     // MARK: - Synthesize
@@ -23,7 +25,8 @@ actor LiveTTSService: TTSService {
         emotion: String?,
         apiURL: String,
         apiPort: Int,
-        outputURL: URL
+        outputURL: URL,
+        options: TTSGenerationOptions = .default
     ) async throws -> URL {
         guard !isCancelled else { throw TTSError.cancelled }
 
@@ -36,13 +39,23 @@ actor LiveTTSService: TTSService {
                 outputURL: outputURL
             )
 
-        case .silero, .kokoro:
+        case .silero, .kokoro, .qwenLocal:
             return try await synthesizeLocal(
                 text: text,
                 modelName: modelName,
                 provider: provider,
                 speed: speed,
                 pitch: pitch,
+                emotion: emotion,
+                outputURL: outputURL,
+                options: options
+            )
+
+        case .qwenCloud:
+            return try await synthesizeQwenCloud(
+                text: text,
+                modelName: modelName,
+                speed: speed,
                 emotion: emotion,
                 outputURL: outputURL
             )
@@ -73,6 +86,7 @@ actor LiveTTSService: TTSService {
         apiURL: String,
         apiPort: Int,
         outputDirectory: URL,
+        options: TTSGenerationOptions = .default,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> [URL] {
         try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
@@ -97,7 +111,8 @@ actor LiveTTSService: TTSService {
                 emotion: emotion,
                 apiURL: apiURL,
                 apiPort: apiPort,
-                outputURL: outputURL
+                outputURL: outputURL,
+                options: options
             )
             results.append(url)
             progressHandler(Double(i + 1) / Double(segments.count))
@@ -117,8 +132,11 @@ actor LiveTTSService: TTSService {
         case .elevenLabs:
             return try await fetchElevenLabsVoices()
 
-        case .silero, .kokoro:
+        case .silero, .kokoro, .qwenLocal:
             return try await fetchLocalModels(provider: provider)
+
+        case .qwenCloud:
+            return ["qwen3-tts-flash"]
 
         case .custom:
             return try await fetchCustomModels(apiURL: apiURL, apiPort: apiPort)
@@ -212,7 +230,56 @@ actor LiveTTSService: TTSService {
         }
     }
 
-    // MARK: - Private: Local Providers (Silero/Kokoro)
+    // MARK: - Private: Qwen Cloud (DashScope API)
+
+    private func synthesizeQwenCloud(
+        text: String,
+        modelName: String,
+        speed: Double,
+        emotion: String?,
+        outputURL: URL
+    ) async throws -> URL {
+        guard let apiKey = UserDefaults.standard.string(forKey: "dashscopeAPIKey"), !apiKey.isEmpty else {
+            throw TTSError.connectionFailed("DashScope API key not configured. Set it in Settings.")
+        }
+
+        guard let url = URL(string: "https://dashscope.aliyuncs.com/compatible-mode/v1/audio/speech") else {
+            throw TTSError.connectionFailed("Invalid DashScope API URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+
+        var body: [String: Any] = [
+            "model": modelName.isEmpty ? "qwen3-tts-flash" : modelName,
+            "input": text,
+        ]
+
+        if let emotion = emotion, !emotion.isEmpty {
+            body["voice_instruct"] = emotion
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await performRequest(request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TTSError.connectionFailed("Invalid response from DashScope")
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
+            throw TTSError.synthesisFaild("DashScope API error: \(errorMsg)")
+        }
+
+        try data.write(to: outputURL)
+        return outputURL
+    }
+
+    // MARK: - Private: Local Providers (Silero/Kokoro/Qwen)
 
     private func synthesizeLocal(
         text: String,
@@ -221,9 +288,16 @@ actor LiveTTSService: TTSService {
         speed: Double,
         pitch: Double,
         emotion: String?,
-        outputURL: URL
+        outputURL: URL,
+        options: TTSGenerationOptions = .default
     ) async throws -> URL {
-        let providerName = provider == .silero ? "silero" : "kokoro"
+        let providerName: String
+        switch provider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
         let port = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
 
         guard let url = URL(string: "http://127.0.0.1:\(port)/api/tts") else {
@@ -233,15 +307,66 @@ actor LiveTTSService: TTSService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+        // Qwen: first request loads the model (3-5 min download + load), subsequent ~10-30s
+        // Silero/Kokoro: much faster
+        if provider == .qwenLocal {
+            request.timeoutInterval = max(Self.qwenFirstRequestTimeout, Double(text.count))
+        } else {
+            request.timeoutInterval = max(Self.requestTimeout * 2, Double(text.count) / 2)
+        }
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "text": text,
             "model": modelName,
             "speed": speed,
             "pitch": pitch,
             "emotion": emotion ?? "",
         ]
+
+        // Add extended generation options
+        if !options.speaker.isEmpty {
+            body["speaker"] = options.speaker
+        }
+        if !options.language.isEmpty {
+            body["language"] = options.language
+        }
+        if options.temperature > 0 {
+            body["temperature"] = options.temperature
+        }
+        if options.topK > 0 {
+            body["top_k"] = options.topK
+        }
+        if options.topP > 0 {
+            body["top_p"] = options.topP
+        }
+        if options.repetitionPenalty > 0 {
+            body["repetition_penalty"] = options.repetitionPenalty
+        }
+        body["do_sample"] = options.doSample
+        if options.maxNewTokens > 0 {
+            body["max_new_tokens"] = options.maxNewTokens
+        }
+        // Voice cloning fields (Qwen Base models)
+        if !options.referenceAudioPath.isEmpty {
+            body["ref_audio_path"] = options.referenceAudioPath
+        }
+        if !options.referenceText.isEmpty {
+            body["ref_text"] = options.referenceText
+        }
+        if options.xVectorOnlyMode {
+            body["x_vector_only_mode"] = true
+        }
+        // Subtalker parameters (voice cloning)
+        if options.subtalkerTemperature > 0 {
+            body["subtalker_temperature"] = options.subtalkerTemperature
+        }
+        if options.subtalkerTopK > 0 {
+            body["subtalker_top_k"] = options.subtalkerTopK
+        }
+        if options.subtalkerTopP > 0 {
+            body["subtalker_top_p"] = options.subtalkerTopP
+        }
+        body["subtalker_dosample"] = options.subtalkerDoSample
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -261,7 +386,13 @@ actor LiveTTSService: TTSService {
     }
 
     private func fetchLocalModels(provider: TTSProvider) async throws -> [String] {
-        let providerName = provider == .silero ? "silero" : "kokoro"
+        let providerName: String
+        switch provider {
+        case .silero: providerName = "silero"
+        case .kokoro: providerName = "kokoro"
+        case .qwenLocal: providerName = "qwen"
+        default: providerName = "silero"
+        }
         let port = try await LocalServerManager.shared.ensureTTSServer(provider: providerName)
 
         guard let url = URL(string: "http://127.0.0.1:\(port)/api/models") else {
@@ -361,9 +492,15 @@ actor LiveTTSService: TTSService {
         } catch let error as URLError {
             switch error.code {
             case .timedOut:
-                throw TTSError.connectionFailed("Request timed out")
+                throw TTSError.connectionFailed(
+                    "Превышено время ожидания ответа от TTS-сервера. "
+                    + "При первом запуске модель загружается в память — это может занять несколько минут. "
+                    + "Попробуйте ещё раз."
+                )
             case .cannotConnectToHost, .networkConnectionLost:
-                throw TTSError.connectionFailed("Cannot connect to server: \(error.localizedDescription)")
+                throw TTSError.connectionFailed(
+                    "Не удалось подключиться к TTS-серверу: \(error.localizedDescription)"
+                )
             default:
                 throw TTSError.connectionFailed(error.localizedDescription)
             }

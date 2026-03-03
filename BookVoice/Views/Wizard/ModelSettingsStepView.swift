@@ -19,10 +19,12 @@ struct ModelSettingsStepView: View {
 
                 // Provider-specific content
                 switch viewModel.selectedProvider {
-                case .silero, .kokoro:
+                case .silero, .kokoro, .qwenLocal:
                     localSetupSection
                 case .elevenLabs:
                     elevenLabsSection
+                case .qwenCloud:
+                    dashScopeSection
                 case .custom:
                     customAPISection
                 }
@@ -99,14 +101,24 @@ struct ModelSettingsStepView: View {
                 .help("Подробнее о моделях озвучки")
             }
 
-            Picker("Провайдер", selection: $viewModel.selectedProvider) {
-                ForEach(TTSProvider.allCases, id: \.self) { provider in
-                    Text(provider.displayName).tag(provider)
+            HStack(spacing: 12) {
+                Picker("Провайдер", selection: $viewModel.selectedProvider) {
+                    ForEach(TTSProvider.allCases, id: \.self) { provider in
+                        Text(provider.displayName).tag(provider)
+                    }
                 }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(maxWidth: 280)
+
+                Text(providerBadge)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(providerBadgeColor.opacity(0.15))
+                    .foregroundStyle(providerBadgeColor)
+                    .clipShape(Capsule())
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.large)
 
             Text(providerDescription)
                 .font(.callout)
@@ -114,16 +126,36 @@ struct ModelSettingsStepView: View {
         }
     }
 
+    private var providerBadge: String {
+        switch viewModel.selectedProvider {
+        case .silero, .kokoro, .qwenLocal: "Бесплатно"
+        case .elevenLabs, .qwenCloud: "Платно"
+        case .custom: "Для специалистов"
+        }
+    }
+
+    private var providerBadgeColor: Color {
+        switch viewModel.selectedProvider {
+        case .silero, .kokoro, .qwenLocal: .green
+        case .elevenLabs, .qwenCloud: .orange
+        case .custom: .purple
+        }
+    }
+
     private var providerDescription: String {
         switch viewModel.selectedProvider {
         case .silero:
-            "Бесплатная локальная модель. Работает без интернета после установки."
+            "Бесплатная модель. Работает прямо на вашем компьютере, интернет не нужен. Хорошо читает на русском."
         case .kokoro:
-            "Локальная модель с высоким качеством речи. Работает без интернета после установки."
+            "Бесплатная модель с более естественным голосом. Лучше всего читает на английском. Интернет не нужен."
         case .elevenLabs:
-            "Облачный сервис с реалистичными голосами. Требуется API-ключ и подключение к интернету."
+            "Платный сервис с самыми реалистичными голосами. Нужен интернет и регистрация на сайте ElevenLabs."
+        case .qwenLocal:
+            "Бесплатная модель с поддержкой 10 языков и имитацией голоса. Работает на вашем компьютере."
+        case .qwenCloud:
+            "Платный сервис от Alibaba. Высокое качество без нагрузки на ваш компьютер. Нужен интернет."
         case .custom:
-            "Подключение к стороннему серверу озвучки по HTTP API."
+            "Для продвинутых пользователей. Подключение к собственному серверу озвучки."
         }
     }
 
@@ -240,7 +272,13 @@ struct ModelSettingsStepView: View {
             .controlSize(.large)
 
         case .completed:
-            EmptyView()
+            Button {
+                Task { await viewModel.reinstallDependencies() }
+            } label: {
+                Label("Переустановить компоненты", systemImage: "arrow.clockwise")
+            }
+            .controlSize(.regular)
+            .help("Если озвучка не работает из-за ошибок, попробуйте переустановить компоненты")
 
         default:
             EmptyView()
@@ -357,6 +395,41 @@ struct ModelSettingsStepView: View {
         }
     }
 
+    // MARK: - DashScope Section (Qwen Cloud)
+
+    private var dashScopeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Подключение к DashScope")
+                .font(.title3.weight(.semibold))
+
+            glassPanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("API-ключ DashScope")
+                        .font(.callout.weight(.medium))
+
+                    glassField {
+                        SecureField(
+                            "API-ключ",
+                            text: $viewModel.dashScopeAPIKey,
+                            prompt: Text(
+                                "Вставьте ваш API-ключ DashScope")
+                        )
+                        .textFieldStyle(.plain)
+                        .font(.body)
+                    }
+
+                    Link(
+                        "Получить ключ на dashscope.console.aliyun.com \u{2192}",
+                        destination: URL(string: "https://dashscope.console.aliyun.com/")!
+                    )
+                    .font(.callout)
+                }
+            }
+
+            connectionTestRow
+        }
+    }
+
     // MARK: - Custom API Section
 
     private var customAPISection: some View {
@@ -446,6 +519,8 @@ struct ModelSettingsStepView: View {
         switch viewModel.selectedProvider {
         case .elevenLabs:
             return !viewModel.apiKey.isEmpty
+        case .qwenCloud:
+            return !viewModel.dashScopeAPIKey.isEmpty
         case .custom:
             return !viewModel.apiURL.isEmpty && viewModel.apiPort > 0
         default:
@@ -536,7 +611,7 @@ private struct ProviderGuideSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             HStack {
-                Text("Какую модель выбрать?")
+                Text("Какую озвучку выбрать?")
                     .font(.title2.weight(.bold))
                 Spacer()
                 Button {
@@ -553,35 +628,40 @@ private struct ProviderGuideSheet: View {
             Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("Если вы не знаете, что выбрать \u{2014} начните с Silero для русских книг или Kokoro для английских. Это бесплатно и не требует интернета.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 4)
+
                     providerCard(
                         icon: "desktopcomputer",
-                        name: "Silero TTS",
+                        name: "Silero",
                         badge: "Бесплатно",
                         badgeColor: .green,
                         qualities: [
-                            "Работает прямо на вашем компьютере \u{2014} интернет не нужен",
-                            "Полностью бесплатная, без ограничений",
+                            "Работает прямо на вашем компьютере, интернет не нужен",
+                            "Бесплатная, без ограничений и регистрации",
                             "Хорошо читает на русском языке",
-                            "Среднее качество голоса \u{2014} звучит как робот-диктор",
+                            "Голос звучит ровно, как робот-диктор",
                         ],
                         recommendation:
-                            "Лучший выбор, если вам нужна бесплатная озвучка на русском языке и вы не хотите зависеть от интернета."
+                            "Лучший выбор для русских книг. Просто установите и пользуйтесь."
                     )
 
                     providerCard(
                         icon: "waveform",
-                        name: "Kokoro TTS",
+                        name: "Kokoro",
                         badge: "Бесплатно",
                         badgeColor: .green,
                         qualities: [
-                            "Работает на вашем компьютере без интернета",
-                            "Высокое качество \u{2014} голос звучит более естественно",
-                            "Лучше всего работает с английским языком",
-                            "Требует больше ресурсов компьютера",
+                            "Работает на вашем компьютере, интернет не нужен",
+                            "Голос звучит более живо и естественно",
+                            "Лучше всего читает на английском языке",
+                            "Нужен более мощный компьютер",
                         ],
                         recommendation:
-                            "Отличный выбор для английских книг или если важно качество звучания без оплаты."
+                            "Лучший выбор для английских книг с естественным звучанием."
                     )
 
                     providerCard(
@@ -590,34 +670,63 @@ private struct ProviderGuideSheet: View {
                         badge: "Платно",
                         badgeColor: .orange,
                         qualities: [
-                            "Самое реалистичное звучание \u{2014} как живой диктор",
+                            "Самый реалистичный голос \u{2014} как живой человек",
                             "Большой выбор голосов на разных языках",
-                            "Требуется подключение к интернету",
-                            "Нужен API-ключ (регистрация на сайте ElevenLabs)",
-                            "Есть бесплатный лимит, далее \u{2014} платная подписка",
+                            "Нужен интернет и регистрация на сайте elevenlabs.io",
+                            "Есть немного бесплатного времени, дальше \u{2014} подписка",
                         ],
                         recommendation:
-                            "Лучший выбор, если качество \u{2014} на первом месте и вы готовы платить."
+                            "Если хотите максимальное качество и готовы платить."
+                    )
+
+                    providerCard(
+                        icon: "waveform.circle",
+                        name: "Qwen3 (на компьютере)",
+                        badge: "Бесплатно",
+                        badgeColor: .green,
+                        qualities: [
+                            "Поддерживает 10 языков сразу",
+                            "Умеет имитировать чужой голос по образцу",
+                            "Работает на вашем компьютере, интернет не нужен",
+                            "Нужен мощный компьютер с большим объёмом памяти",
+                        ],
+                        recommendation:
+                            "Если нужна имитация голоса или много разных языков."
+                    )
+
+                    providerCard(
+                        icon: "cloud.fill",
+                        name: "Qwen3 (через интернет)",
+                        badge: "Платно",
+                        badgeColor: .orange,
+                        qualities: [
+                            "Всё считается на серверах \u{2014} ваш компьютер не нагружается",
+                            "Высокое качество звучания",
+                            "Нужен интернет и регистрация на сайте Alibaba Cloud",
+                        ],
+                        recommendation:
+                            "Если хотите качественную озвучку, но компьютер не очень мощный."
                     )
 
                     providerCard(
                         icon: "server.rack",
-                        name: "Свой API",
-                        badge: "Для продвинутых",
+                        name: "Свой сервер",
+                        badge: "Для специалистов",
                         badgeColor: .purple,
                         qualities: [
                             "Подключение к любому серверу озвучки",
-                            "Полный контроль над настройками",
-                            "Нужны технические знания для настройки",
+                            "Полный контроль над всеми настройками",
+                            "Нужны технические знания",
                         ],
                         recommendation:
-                            "Для опытных пользователей, у которых есть собственный сервер озвучки."
+                            "Только для опытных пользователей, у которых уже есть свой сервер."
                     )
                 }
                 .padding(20)
             }
         }
-        .frame(width: 520, height: 600)
+        .frame(width: 520, height: 620)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     private func providerCard(
@@ -667,7 +776,7 @@ private struct ProviderGuideSheet: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
+        .background(.fill.quaternary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
@@ -756,6 +865,7 @@ private struct PromptGuideSheet: View {
             }
         }
         .frame(width: 480, height: 560)
+        .presentationBackground(.ultraThinMaterial)
     }
 
     private func sectionTitle(_ text: String) -> some View {
@@ -774,8 +884,12 @@ private struct PromptGuideSheet: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.fill.quaternary)
+        .background(.fill.quaternary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+        )
     }
 }
 

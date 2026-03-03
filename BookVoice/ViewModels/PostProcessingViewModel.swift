@@ -27,9 +27,11 @@ final class PostProcessingViewModel {
     }
 
     private let audioEngine: any AudioEngineService
+    private let notificationService: any NotificationService
 
-    init(project: VoiceoverProject, audioEngine: any AudioEngineService) {
+    init(project: VoiceoverProject, audioEngine: any AudioEngineService, notificationService: any NotificationService) {
         self.audioEngine = audioEngine
+        self.notificationService = notificationService
         self.outputFormat = project.outputFormat
         self.metadataTitle = project.metadataTitle ?? project.title
         self.metadataArtist = project.metadataArtist ?? project.author
@@ -52,6 +54,11 @@ final class PostProcessingViewModel {
 
     func export(audioFiles: [URL]) async {
         guard canExport else { return }
+
+        guard !audioFiles.isEmpty else {
+            errorMessage = "Нет аудиофайлов для экспорта. Сначала выполните озвучку."
+            return
+        }
 
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [.audio]
@@ -86,8 +93,16 @@ final class PostProcessingViewModel {
             )
 
             outputURL = result
+            await notificationService.send(
+                title: "Экспорт завершён",
+                body: "\(metadataTitle) экспортирован"
+            )
         } catch {
             errorMessage = "Ошибка экспорта: \(error.localizedDescription)"
+            await notificationService.send(
+                title: "Ошибка экспорта",
+                body: error.localizedDescription
+            )
         }
 
         isExporting = false

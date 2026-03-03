@@ -137,7 +137,8 @@ struct PostProcessingStepView: View {
     PostProcessingStepView(
         viewModel: PostProcessingViewModel(
             project: VoiceoverProject(title: "My Book"),
-            audioEngine: MockAudioEngineService()
+            audioEngine: MockAudioEngineService(),
+            notificationService: MockNotificationService()
         )
     )
     .frame(width: 800, height: 500)

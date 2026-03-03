@@ -15,6 +15,7 @@ struct BookVoiceApp: App {
             VoiceoverProject.self,
             TextSegment.self,
             AudioSegment.self,
+            VoiceProfile.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
@@ -32,6 +33,9 @@ struct BookVoiceApp: App {
         WindowGroup {
             ContentView()
                 .environment(ServiceContainer.shared)
+                .task {
+                    await ServiceContainer.shared.notification.requestPermission()
+                }
         }
         .modelContainer(sharedModelContainer)
         .defaultSize(width: 900, height: 600)

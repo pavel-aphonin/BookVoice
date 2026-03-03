@@ -5,6 +5,29 @@
 
 import Foundation
 
+/// Extended generation options for TTS (primarily Qwen3 TTS).
+struct TTSGenerationOptions: Sendable {
+    var speaker: String = ""
+    var language: String = ""
+    var temperature: Double = -1     // -1 = use model default
+    var topK: Int = -1               // -1 = use model default
+    var topP: Double = -1            // -1 = use model default
+    var repetitionPenalty: Double = -1  // -1 = use model default
+    var doSample: Bool = true
+    var maxNewTokens: Int = -1           // -1 = use model default (2048)
+    // Voice cloning (Qwen Base models)
+    var referenceAudioPath: String = ""   // Local path to reference WAV
+    var referenceText: String = ""        // Transcript of reference audio
+    var xVectorOnlyMode: Bool = false     // Faster but lower quality cloning
+    // Subtalker parameters (voice cloning only — controls embedding generation)
+    var subtalkerTemperature: Double = -1
+    var subtalkerTopK: Int = -1
+    var subtalkerTopP: Double = -1
+    var subtalkerDoSample: Bool = true
+
+    static let `default` = TTSGenerationOptions()
+}
+
 protocol TTSService: Sendable {
     /// Synthesize a single text segment to an audio file
     func synthesize(
@@ -16,7 +39,8 @@ protocol TTSService: Sendable {
         emotion: String?,
         apiURL: String,
         apiPort: Int,
-        outputURL: URL
+        outputURL: URL,
+        options: TTSGenerationOptions
     ) async throws -> URL
 
     /// Synthesize a batch of segments with progress reporting
@@ -30,6 +54,7 @@ protocol TTSService: Sendable {
         apiURL: String,
         apiPort: Int,
         outputDirectory: URL,
+        options: TTSGenerationOptions,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> [URL]
 
