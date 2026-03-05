@@ -49,6 +49,10 @@ enum AppConstants: Sendable {
         appSupportDirectory.appendingPathComponent("Models")
     }
 
+    nonisolated static var llmModelsDirectory: URL {
+        appSupportDirectory.appendingPathComponent("Models/LLM")
+    }
+
     nonisolated static var tempAudioDirectory: URL {
         appSupportDirectory.appendingPathComponent("TempAudio")
     }

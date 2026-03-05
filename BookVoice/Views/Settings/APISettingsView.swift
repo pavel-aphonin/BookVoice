@@ -10,8 +10,31 @@ struct APISettingsView: View {
     @AppStorage("customAPIEndpoint") private var customAPIEndpoint = ""
     @AppStorage("customAPIPort") private var customAPIPort = AppConstants.defaultAPIPort
 
+    // LLM providers
+    @AppStorage("openaiAPIKey") private var openaiAPIKey = ""
+    @AppStorage("claudeAPIKey") private var claudeAPIKey = ""
+    // Local LLM managed automatically by the app — no URL needed
+
     var body: some View {
         Form {
+            // MARK: - LLM (Text Preprocessing)
+
+            Section("OpenAI (подготовка текста)") {
+                SecureField("API-ключ", text: $openaiAPIKey, prompt: Text("sk-..."))
+                Text("Используется для LLM-разметки текста (ударения, паузы, интонация)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Claude / Anthropic (подготовка текста)") {
+                SecureField("API-ключ", text: $claudeAPIKey, prompt: Text("sk-ant-..."))
+                Text("Альтернативный LLM-провайдер для разметки текста")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            // MARK: - TTS
+
             Section("ElevenLabs") {
                 SecureField("API-ключ", text: $elevenLabsAPIKey, prompt: Text("Введите API-ключ ElevenLabs"))
                 Text("Получите API-ключ на elevenlabs.io")

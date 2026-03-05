@@ -8,6 +8,7 @@ import SwiftUI
 enum ProjectStatus: String, Codable, CaseIterable {
     case draft
     case textLoaded
+    case textPreprocessed
     case synthesizing
     case converting
     case postProcessing
@@ -18,6 +19,7 @@ enum ProjectStatus: String, Codable, CaseIterable {
         switch self {
         case .draft: "Черновик"
         case .textLoaded: "Текст загружен"
+        case .textPreprocessed: "Текст подготовлен"
         case .synthesizing: "Синтез"
         case .converting: "Конвертация"
         case .postProcessing: "Обработка"
@@ -30,6 +32,7 @@ enum ProjectStatus: String, Codable, CaseIterable {
         switch self {
         case .draft: "doc"
         case .textLoaded: "doc.text"
+        case .textPreprocessed: "text.magnifyingglass"
         case .synthesizing: "waveform"
         case .converting: "waveform.path.ecg"
         case .postProcessing: "gearshape.2"
@@ -42,6 +45,7 @@ enum ProjectStatus: String, Codable, CaseIterable {
         switch self {
         case .draft: .statusDraft
         case .textLoaded: .blue
+        case .textPreprocessed: .cyan
         case .synthesizing, .converting, .postProcessing: .statusInProgress
         case .completed: .statusCompleted
         case .failed: .statusFailed

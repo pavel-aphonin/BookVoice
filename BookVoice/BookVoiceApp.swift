@@ -8,8 +8,20 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - App Delegate (cleanup on quit)
+
+class BookVoiceAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillTerminate(_ notification: Notification) {
+        // Synchronously kill all Python server processes before the app exits.
+        // This prevents zombie servers from lingering after quit.
+        LocalServerManager.terminateAllServers()
+    }
+}
+
 @main
 struct BookVoiceApp: App {
+    @NSApplicationDelegateAdaptor(BookVoiceAppDelegate.self) var appDelegate
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             VoiceoverProject.self,

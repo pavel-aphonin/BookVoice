@@ -43,10 +43,12 @@ struct WizardContainerView: View {
                 case 2:
                     TextUploadStepView(viewModel: viewModel.textUpload)
                 case 3:
-                    VoiceoverStepView(viewModel: viewModel.voiceover)
+                    TextPreprocessingStepView(viewModel: viewModel.textPreprocessing)
                 case 4:
-                    TimbreChangeStepView(viewModel: viewModel.timbreChange)
+                    VoiceoverStepView(viewModel: viewModel.voiceover)
                 case 5:
+                    TimbreChangeStepView(viewModel: viewModel.timbreChange)
+                case 6:
                     PostProcessingStepView(viewModel: viewModel.postProcessing)
                 default:
                     EmptyView()

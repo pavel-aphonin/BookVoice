@@ -32,7 +32,14 @@ final class VoiceoverProject {
     @Relationship(deleteRule: .cascade, inverse: \TextSegment.project)
     var textSegments: [TextSegment]
 
-    // Step 3: Voiceover
+    // Step 3: Text Preprocessing (LLM)
+    var llmProvider: LLMProvider?
+    var llmModel: String?
+    var llmCustomPrompt: String?
+    var llmSkipped: Bool?
+    var preprocessedSegmentsJSON: Data?
+
+    // Step 4: Voiceover
     var ttsModelName: String?
     var ttsSpeed: Double
     var ttsPitch: Double
@@ -59,7 +66,7 @@ final class VoiceoverProject {
     @Relationship(deleteRule: .cascade, inverse: \AudioSegment.project)
     var audioSegments: [AudioSegment]
 
-    // Step 4: RVC
+    // Step 5: RVC
     var rvcEnabled: Bool
     var rvcModelPath: String?
     var rvcModelPathBookmark: Data?
@@ -68,7 +75,7 @@ final class VoiceoverProject {
     var rvcProtectVoiceless: Double
     var voiceSampleBookmark: Data?
 
-    // Step 5: Export
+    // Step 6: Export
     var outputFormat: AudioFormat
     var outputDirectoryPath: String?
     var outputDirectoryBookmark: Data?

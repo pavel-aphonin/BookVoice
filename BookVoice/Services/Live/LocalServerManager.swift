@@ -12,11 +12,54 @@ actor LocalServerManager {
 
     static let shared = LocalServerManager()
 
+    // MARK: - App Termination Cleanup
+
+    /// All ports that BookVoice servers may occupy.
+    private static let allServerPorts = [
+        8100, 8102, 8104, 8106, 8108,  // TTS
+        8101,                            // RVC
+        8200, 8202, 8204, 8206, 8208,  // LLM
+    ]
+
+    /// Synchronous cleanup called from `applicationWillTerminate`.
+    /// Kills every Python server process on known ports so nothing lingers after quit.
+    /// This is `nonisolated` and `static` — safe to call from any thread without `await`.
+    nonisolated static func terminateAllServers() {
+        print("[Server] App terminating — killing all server processes")
+
+        for port in allServerPorts {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/lsof")
+            proc.arguments = ["-ti", "tcp:\(port)"]
+            let pipe = Pipe()
+            proc.standardOutput = pipe
+            proc.standardError = FileHandle.nullDevice
+
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                guard let output = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                      !output.isEmpty else { continue }
+
+                let pids = output.components(separatedBy: .newlines)
+                    .compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
+                for pid in pids {
+                    kill(pid, SIGTERM)
+                }
+            } catch {
+                // Best effort — continue with remaining ports
+            }
+        }
+    }
+
     // MARK: - Server Configuration
 
     enum ServerType: String, Sendable {
         case tts
         case rvc
+        case llm
     }
 
     struct ServerConfig: Sendable {
@@ -34,6 +77,7 @@ actor LocalServerManager {
 
     private let ttsDefaultPort = 8100
     private let rvcDefaultPort = 8101
+    private let llmDefaultPort = 8200
 
     /// Path to the venv directory inside Application Support
     private nonisolated var venvDirectory: URL {
@@ -50,11 +94,13 @@ actor LocalServerManager {
     private static let scriptFiles = [
         "tts_server.py",
         "rvc_server.py",
+        "llm_server.py",
         "requirements.txt",
         "requirements_silero.txt",
         "requirements_kokoro.txt",
         "requirements_qwen.txt",
         "requirements_rvc.txt",
+        "requirements_llm.txt",
     ]
 
     // MARK: - Python Environment
@@ -218,6 +264,8 @@ actor LocalServerManager {
             packages = ["fastapi", "uvicorn", "torch", "qwen_tts"]
         case "rvc":
             packages = ["fastapi", "uvicorn", "rvc_python"]
+        case "llm":
+            packages = ["fastapi", "uvicorn", "llama_cpp", "requests"]
         default:
             packages = ["fastapi", "uvicorn"]
         }
@@ -255,6 +303,14 @@ actor LocalServerManager {
         // Kill any stale process on this port from a previous app session
         killProcessOnPort(config.port)
 
+        // Pre-check: verify port is actually available via socket bind test
+        if !isPortAvailable(config.port) {
+            print("[Server] Port \(config.port) is not available (socket bind test failed after kill)")
+            throw LocalServerError.serverStartFailed(
+                "Порт \(config.port) занят. Попробуйте завершить другие приложения, использующие этот порт."
+            )
+        }
+
         // Ensure venv exists
         try await ensureVenv()
 
@@ -281,6 +337,13 @@ actor LocalServerManager {
             args = [
                 "--port", String(config.port),
                 "--models-dir", AppConstants.modelsDirectory.path,
+            ]
+
+        case .llm:
+            scriptName = "llm_server.py"
+            args = [
+                "--port", String(config.port),
+                "--models-dir", AppConstants.llmModelsDirectory.path,
             ]
         }
 
@@ -345,6 +408,8 @@ actor LocalServerManager {
             timeout = 60
         case (.rvc, _):
             timeout = 30
+        case (.llm, _):
+            timeout = 120  // 2 min — loading LLM model can be slow
         }
         let baseURL = "http://127.0.0.1:\(config.port)/api/health"
         let ready = await waitForServer(url: baseURL, timeout: timeout, process: process)
@@ -357,9 +422,14 @@ actor LocalServerManager {
             errorPipe.fileHandleForReading.readabilityHandler = nil
 
             process.terminate()
-            runningServers[config.type] = nil
-            serverPorts[config.type] = nil
-            serverProviders[config.type] = nil
+
+            // Only clean up state if our process is still the registered one
+            // (another concurrent call may have replaced it during await)
+            if runningServers[config.type] === process {
+                runningServers[config.type] = nil
+                serverPorts[config.type] = nil
+                serverProviders[config.type] = nil
+            }
 
             // Read remaining stderr for diagnostics
             let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
@@ -422,28 +492,70 @@ actor LocalServerManager {
         runningServers[type]?.isRunning ?? false
     }
 
-    /// Get the port of a running server
+    /// Probe a port with an HTTP health check. Returns true if a healthy server responds.
+    private nonisolated func probeHealthEndpoint(port: Int, path: String = "/api/health") async -> Bool {
+        guard let url = URL(string: "http://127.0.0.1:\(port)\(path)") else { return false }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 3
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                return true
+            }
+        } catch {
+            // Not responding
+        }
+        return false
+    }
+
+    /// Get the port of a running server (including adopted orphan servers).
     func getPort(for type: ServerType) -> Int? {
-        guard isServerRunning(type) else { return nil }
-        return serverPorts[type]
+        serverPorts[type]
     }
 
     /// Ensure a TTS server is running for the given provider.
     /// Auto-installs dependencies if they are not yet available (same as ``ensureRVCServer``).
+    /// Tries alternative ports if the default one is occupied.
     func ensureTTSServer(provider: String) async throws -> Int {
-        let port = ttsDefaultPort
-
         if isServerRunning(.tts) {
             // If the same provider is already running, reuse it
             if serverProviders[.tts] == provider {
-                return serverPorts[.tts] ?? port
+                return serverPorts[.tts] ?? ttsDefaultPort
             }
             // Provider changed — stop old server before starting new one
             print("[Server] Provider changed from \(serverProviders[.tts] ?? "?") to \(provider), restarting TTS server")
             stopServer(.tts)
-            // Give the old process time to release the port
-            try? await Task.sleep(for: .seconds(1))
+            // Wait for the OS to fully release the socket
+            try? await Task.sleep(for: .seconds(2))
         }
+
+        // Fast path: check previously adopted orphan port first
+        if let adoptedPort = serverPorts[.tts],
+           await probeHealthEndpoint(port: adoptedPort) {
+            serverProviders[.tts] = provider
+            return adoptedPort
+        }
+
+        // Probe for orphaned TTS server from a previous app session
+        for portOffset in stride(from: 0, through: 8, by: 2) {
+            let port = ttsDefaultPort + portOffset
+            if await probeHealthEndpoint(port: port) {
+                print("[Server] Found existing TTS server on port \(port), reusing")
+                serverPorts[.tts] = port
+                serverProviders[.tts] = provider
+                return port
+            }
+        }
+
+        // Kill any orphaned processes on TTS ports before starting fresh
+        for portOffset in stride(from: 0, through: 8, by: 2) {
+            let port = ttsDefaultPort + portOffset
+            if !isPortAvailable(port) {
+                print("[Server] Killing orphaned process on TTS port \(port)")
+                killProcessOnPort(port)
+            }
+        }
+        try? await Task.sleep(for: .seconds(1))
 
         // Auto-install TTS dependencies if missing
         let hasDeps = await areDependenciesInstalled(for: provider)
@@ -451,7 +563,21 @@ actor LocalServerManager {
             try await installDependencies(for: provider)
         }
 
-        return try await startServer(ServerConfig(type: .tts, port: port, provider: provider))
+        // Try the default port, then alternatives if occupied
+        var lastError: Error?
+        for portOffset in stride(from: 0, through: 8, by: 2) {
+            let port = ttsDefaultPort + portOffset
+            do {
+                return try await startServer(ServerConfig(type: .tts, port: port, provider: provider))
+            } catch {
+                lastError = error
+                print("[Server] Port \(port) failed, trying next: \(error.localizedDescription)")
+            }
+        }
+
+        throw lastError ?? LocalServerError.serverStartFailed(
+            "Не удалось запустить сервер: все порты 8100–8108 заняты"
+        )
     }
 
     /// Ensure the RVC server is running
@@ -468,6 +594,69 @@ actor LocalServerManager {
         }
 
         return try await startServer(ServerConfig(type: .rvc, port: port, provider: nil))
+    }
+
+    /// Ensure the LLM server is running.
+    /// Auto-installs dependencies if needed. Tries alternative ports if default is occupied.
+    func ensureLLMServer() async throws -> Int {
+        if isServerRunning(.llm) {
+            return serverPorts[.llm] ?? llmDefaultPort
+        }
+
+        // Fast path: check previously adopted orphan port first
+        if let adoptedPort = serverPorts[.llm],
+           await probeHealthEndpoint(port: adoptedPort, path: "/api/health") {
+            return adoptedPort
+        }
+
+        // Probe for orphaned LLM server from a previous app session
+        for portOffset in stride(from: 0, through: 8, by: 2) {
+            let port = llmDefaultPort + portOffset
+            if await probeHealthEndpoint(port: port, path: "/api/health") {
+                print("[Server] Found existing LLM server on port \(port), reusing")
+                serverPorts[.llm] = port
+                return port
+            }
+        }
+
+        // Kill any orphaned processes on LLM ports before starting fresh
+        for portOffset in stride(from: 0, through: 8, by: 2) {
+            let port = llmDefaultPort + portOffset
+            if !isPortAvailable(port) {
+                print("[Server] Killing orphaned process on LLM port \(port)")
+                killProcessOnPort(port)
+            }
+        }
+        // Wait for OS to release sockets
+        try? await Task.sleep(for: .seconds(1))
+
+        // Auto-install LLM dependencies if missing
+        let hasLLMDeps = await areDependenciesInstalled(for: "llm")
+        if !hasLLMDeps {
+            try await installDependencies(for: "llm")
+        }
+
+        // Ensure the LLM models directory exists
+        try FileManager.default.createDirectory(
+            at: URL(fileURLWithPath: AppConstants.llmModelsDirectory.path),
+            withIntermediateDirectories: true
+        )
+
+        // Try the default port, then alternatives if occupied
+        var lastError: Error?
+        for portOffset in stride(from: 0, through: 8, by: 2) {
+            let port = llmDefaultPort + portOffset
+            do {
+                return try await startServer(ServerConfig(type: .llm, port: port, provider: nil))
+            } catch {
+                lastError = error
+                print("[Server] LLM port \(port) failed, trying next: \(error.localizedDescription)")
+            }
+        }
+
+        throw lastError ?? LocalServerError.serverStartFailed(
+            "Не удалось запустить LLM-сервер: все порты 8200–8208 заняты"
+        )
     }
 
     // MARK: - Scripts Management
@@ -534,18 +723,46 @@ actor LocalServerManager {
 
     // MARK: - Private Helpers
 
+    /// Check if a given TCP port is available by attempting an actual socket bind.
+    /// More reliable than lsof — catches TIME_WAIT and other OS-level port states
+    /// that lsof may not report.
+    private nonisolated func isPortAvailable(_ port: Int) -> Bool {
+        let sock = socket(AF_INET, SOCK_STREAM, 0)
+        guard sock >= 0 else { return false }
+        defer { Darwin.close(sock) }
+
+        var reuseAddr: Int32 = 1
+        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(port).bigEndian
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let result = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { ptr in
+                Darwin.bind(sock, ptr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+
+        return result == 0
+    }
+
     /// Kill any process listening on the given port (stale server from a previous session).
+    /// Verifies the port is actually freed before returning.
     private nonisolated func killProcessOnPort(_ port: Int) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/lsof")
-        process.arguments = ["-ti", "tcp:\(port)"]
+        // Find PIDs on this port
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/lsof")
+        proc.arguments = ["-ti", "tcp:\(port)"]
         let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+        proc.standardOutput = pipe
+        proc.standardError = FileHandle.nullDevice
 
         do {
-            try process.run()
-            process.waitUntilExit()
+            try proc.run()
+            proc.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             if let output = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
@@ -562,17 +779,25 @@ actor LocalServerManager {
 
                 // If still alive, force kill with SIGKILL
                 for pid in pids {
-                    // kill(pid, 0) checks if process exists without sending a signal
                     if kill(pid, 0) == 0 {
                         print("[Server] Force-killing process \(pid) on port \(port)")
                         kill(pid, SIGKILL)
                     }
                 }
-                Thread.sleep(forTimeInterval: 0.5)
             }
         } catch {
             // Not critical — just continue
         }
+
+        // Wait until the port is actually free (up to 5 seconds)
+        for attempt in 1...10 {
+            if isPortAvailable(port) {
+                return
+            }
+            print("[Server] Port \(port) still in use, waiting… (attempt \(attempt)/10)")
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        print("[Server] WARNING: Port \(port) is still in use after all kill attempts")
     }
 
     private func getScriptsDirectory() throws -> URL {

@@ -9,11 +9,12 @@ import SwiftUI
 final class WizardViewModel {
     // Navigation
     var currentStep: Int = 1
-    let totalSteps = 5
+    let totalSteps = 6
 
     // Child view models
     let modelSettings: ModelSettingsViewModel
     let textUpload: TextUploadViewModel
+    let textPreprocessing: TextPreprocessingViewModel
     let voiceover: VoiceoverViewModel
     let timbreChange: TimbreChangeViewModel
     let postProcessing: PostProcessingViewModel
@@ -21,7 +22,7 @@ final class WizardViewModel {
     // The project being edited
     let project: VoiceoverProject
 
-    let stepTitles = ["Модель", "Текст", "Озвучка", "Тембр", "Экспорт"]
+    let stepTitles = ["Модель", "Текст", "Подготовка", "Озвучка", "Тембр", "Экспорт"]
 
     var canGoBack: Bool { currentStep > 1 }
 
@@ -29,9 +30,10 @@ final class WizardViewModel {
         switch currentStep {
         case 1: return modelSettings.isValid
         case 2: return textUpload.isValid
-        case 3: return voiceover.isReady && !voiceover.isSynthesizing
-        case 4: return timbreChange.isValid && !timbreChange.isConverting
-        case 5: return false
+        case 3: return textPreprocessing.isValid && !textPreprocessing.isProcessing
+        case 4: return voiceover.isReady && !voiceover.isSynthesizing
+        case 5: return timbreChange.isValid && !timbreChange.isConverting
+        case 6: return false
         default: return false
         }
     }
@@ -57,6 +59,10 @@ final class WizardViewModel {
         self.textUpload = TextUploadViewModel(
             project: project,
             textService: services.textProcessing
+        )
+        self.textPreprocessing = TextPreprocessingViewModel(
+            project: project,
+            llmService: services.llm
         )
         self.voiceover = VoiceoverViewModel(
             project: project,
@@ -111,9 +117,10 @@ final class WizardViewModel {
         switch currentStep {
         case 1: modelSettings.saveToProject(project)
         case 2: textUpload.saveToProject(project)
-        case 3: voiceover.saveToProject(project)
-        case 4: timbreChange.saveToProject(project)
-        case 5: postProcessing.saveToProject(project)
+        case 3: textPreprocessing.saveToProject(project)
+        case 4: voiceover.saveToProject(project)
+        case 5: timbreChange.saveToProject(project)
+        case 6: postProcessing.saveToProject(project)
         default: break
         }
     }
@@ -121,12 +128,16 @@ final class WizardViewModel {
     private func prepareStep(_ step: Int) async {
         switch step {
         case 3:
+            // Подготовить сегменты из шага 2 для LLM-обработки
+            let segments = await textUpload.allSegments()
+            textPreprocessing.prepareSegments(segments)
+        case 4:
             // Обновить провайдер/API из проекта (мог измениться на шаге 1)
             voiceover.updateFromProject(project)
             await voiceover.loadModels()
-            let segments = await textUpload.allSegments()
-            voiceover.prepareSegments(segments)
-        case 4:
+            // Передать сегменты через шаг подготовки текста (обработанные или оригинальные)
+            voiceover.prepareSegments(textPreprocessing.outputSegments)
+        case 5:
             await timbreChange.loadModels()
             // Передать TTS-аудио для RVC-конвертации
             timbreChange.audioSegmentURLs = voiceover.segmentStates.compactMap { $0.audioURL }

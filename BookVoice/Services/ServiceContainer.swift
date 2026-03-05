@@ -8,6 +8,7 @@ import SwiftUI
 @Observable
 final class ServiceContainer {
     let textProcessing: any TextProcessingService
+    let llm: any LLMService
     let tts: any TTSService
     let rvc: any RVCService
     let audioEngine: any AudioEngineService
@@ -21,6 +22,7 @@ final class ServiceContainer {
     init(useMocks: Bool = false) {
         if useMocks {
             self.textProcessing = MockTextProcessingService()
+            self.llm = MockLLMService()
             self.tts = MockTTSService()
             self.rvc = MockRVCService()
             self.audioEngine = MockAudioEngineService()
@@ -30,6 +32,7 @@ final class ServiceContainer {
         }
 
         self.textProcessing = LiveTextProcessingService()
+        self.llm = LiveLLMService()
         self.tts = LiveTTSService()
         self.rvc = LiveRVCService()
         self.audioEngine = LiveAudioEngineService()
