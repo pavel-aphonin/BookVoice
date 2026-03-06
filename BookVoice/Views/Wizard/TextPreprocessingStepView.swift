@@ -46,6 +46,10 @@ struct TextPreprocessingStepView: View {
 
                 Divider()
 
+                preprocessingOptionsSection
+
+                Divider()
+
                 processingControls
 
                 Divider()
@@ -222,6 +226,86 @@ struct TextPreprocessingStepView: View {
         }
     }
 
+    // MARK: - Preprocessing Options
+
+    @ViewBuilder
+    private var preprocessingOptionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Параметры разметки")
+                    .font(.headline)
+                Spacer()
+                Text(viewModel.ttsProvider.displayName)
+                    .font(.caption)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(.blue.opacity(0.1), in: Capsule())
+            }
+
+            if viewModel.isUsingCustomPrompt {
+                Label(
+                    "Параметры не применяются при использовании своего промпта",
+                    systemImage: "info.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Group {
+                Toggle("Ударения", isOn: $viewModel.preprocessingOptions.stressMarks)
+                Toggle("Эмоции / интонация", isOn: $viewModel.preprocessingOptions.emotionMarkup)
+                Toggle("Паузы", isOn: $viewModel.preprocessingOptions.pauseInsertion)
+                Toggle("Числительные \u{2192} слова", isOn: $viewModel.preprocessingOptions.numberExpansion)
+                Toggle("Раскрытие аббревиатур", isOn: $viewModel.preprocessingOptions.abbreviationExpansion)
+                Toggle("Адаптация для аудио", isOn: $viewModel.preprocessingOptions.audioRephrasing)
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .disabled(viewModel.isUsingCustomPrompt)
+
+            HStack {
+                Text("Интенсивность")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Picker("", selection: $viewModel.preprocessingOptions.intensity) {
+                    ForEach(PreprocessingIntensity.allCases, id: \.self) { level in
+                        Text(level.displayName).tag(level)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+            .disabled(viewModel.isUsingCustomPrompt)
+
+            providerCapabilityNote
+        }
+    }
+
+    @ViewBuilder
+    private var providerCapabilityNote: some View {
+        let note: String? = switch viewModel.ttsProvider {
+        case .silero:
+            "Silero не поддерживает теги. Разметка ограничена пунктуацией и ударениями."
+        case .qwenLocal:
+            "Qwen3 TTS поддерживает инструкции [happy], [sad] и др. на английском языке."
+        case .qwenCloud:
+            "Qwen3 Cloud: инструкции передаются через API. Текст будет чистым."
+        case .kokoro:
+            "Kokoro поддерживает теги <emotion> и <pause>."
+        case .elevenLabs:
+            "ElevenLabs хорошо работает с чистым текстом и пунктуацией."
+        case .custom:
+            nil
+        }
+        if let note {
+            Label(note, systemImage: "info.circle")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Processing Controls
+
     @ViewBuilder
     private var processingControls: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -270,21 +354,39 @@ struct TextPreprocessingStepView: View {
     @ViewBuilder
     private var promptSection: some View {
         DisclosureGroup("Системный промпт") {
-            TextEditor(text: $viewModel.customPrompt)
-                .font(.system(.caption, design: .monospaced))
-                .frame(minHeight: 120)
+            if viewModel.isUsingCustomPrompt {
+                TextEditor(text: $viewModel.customPrompt)
+                    .font(.system(.caption, design: .monospaced))
+                    .frame(minHeight: 120)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(.quaternary)
+                    )
+
+                Button("Вернуться к автоматическому промпту") {
+                    viewModel.customPrompt = ""
+                }
+                .font(.caption)
+            } else {
+                ScrollView {
+                    Text(viewModel.generatedPrompt)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .frame(minHeight: 80, maxHeight: 150)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(.quaternary)
                 )
 
-            if viewModel.customPrompt.isEmpty {
-                Text("Используется промпт по умолчанию")
+                Text("Промпт генерируется автоматически на основе провайдера и параметров")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else {
-                Button("Сбросить к дефолтному") {
-                    viewModel.customPrompt = ""
+
+                Button("Использовать свой промпт") {
+                    viewModel.customPrompt = viewModel.generatedPrompt
                 }
                 .font(.caption)
             }

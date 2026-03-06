@@ -38,6 +38,7 @@ final class VoiceoverProject {
     var llmCustomPrompt: String?
     var llmSkipped: Bool?
     var preprocessedSegmentsJSON: Data?
+    var preprocessingOptionsJSON: Data?
 
     // Step 4: Voiceover
     var ttsModelName: String?

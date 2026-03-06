@@ -55,6 +55,28 @@ final class TextPreprocessingViewModel {
     /// Выбранный сегмент для детального просмотра
     var selectedSegmentIndex: Int?
 
+    // MARK: - TTS Provider & Preprocessing Options
+
+    var ttsProvider: TTSProvider
+    var preprocessingOptions: PreprocessingOptions = .default
+
+    var isUsingCustomPrompt: Bool {
+        !customPrompt.isEmpty
+    }
+
+    /// Промпт, который будет сгенерирован из текущего провайдера и параметров
+    var generatedPrompt: String {
+        PreprocessingPromptBuilder.buildPrompt(
+            ttsProvider: ttsProvider,
+            options: preprocessingOptions
+        )
+    }
+
+    /// Обновить TTS-провайдер при переходе на шаг 3
+    func updateTTSProvider(_ provider: TTSProvider) {
+        ttsProvider = provider
+    }
+
     // MARK: - Computed
 
     var isValid: Bool {
@@ -62,7 +84,11 @@ final class TextPreprocessingViewModel {
     }
 
     var effectivePrompt: String {
-        customPrompt.isEmpty ? Self.defaultPrompt : customPrompt
+        if !customPrompt.isEmpty { return customPrompt }
+        return PreprocessingPromptBuilder.buildPrompt(
+            ttsProvider: ttsProvider,
+            options: preprocessingOptions
+        )
     }
 
     /// Сегменты для передачи на озвучку: обработанные (если есть) или оригинальные
@@ -116,6 +142,7 @@ final class TextPreprocessingViewModel {
 
     init(project: VoiceoverProject, llmService: any LLMService) {
         self.llmService = llmService
+        self.ttsProvider = project.ttsProvider
 
         // Восстановить из проекта
         if let provider = project.llmProvider {
@@ -124,6 +151,12 @@ final class TextPreprocessingViewModel {
         self.selectedModel = project.llmModel ?? ""
         self.customPrompt = project.llmCustomPrompt ?? ""
         self.isEnabled = !(project.llmSkipped ?? true)
+
+        // Восстановить параметры подготовки
+        if let data = project.preprocessingOptionsJSON,
+           let options = try? JSONDecoder().decode(PreprocessingOptions.self, from: data) {
+            self.preprocessingOptions = options
+        }
 
         // Восстановить обработанные сегменты
         if let data = project.preprocessedSegmentsJSON,
@@ -331,6 +364,9 @@ final class TextPreprocessingViewModel {
         project.llmCustomPrompt = customPrompt.isEmpty ? nil : customPrompt
         project.llmSkipped = !isEnabled  // инвертируем для обратной совместимости
 
+        // Сохранить параметры подготовки
+        project.preprocessingOptionsJSON = try? JSONEncoder().encode(preprocessingOptions)
+
         if !processedSegments.isEmpty {
             project.preprocessedSegmentsJSON = try? JSONEncoder().encode(processedSegments)
         } else {
@@ -340,36 +376,6 @@ final class TextPreprocessingViewModel {
         project.updatedAt = Date()
     }
 
-    // MARK: - Default Prompt
-
-    static let defaultPrompt = """
-    Ты — ассистент по подготовке текста для синтеза речи (TTS). \
-    Твоя задача — разметить текст, чтобы он звучал более естественно при озвучке.
-
-    Правила разметки:
-
-    1. УДАРЕНИЯ: На словах с неоднозначным ударением поставь знак ударения \
-    (комбинирующий акут U+0301) после ударной гласной.
-       Примеры: замо́к (не за́мок), больши́е, доро́га
-       НЕ ставь ударения на односложных словах и на словах, где ударение однозначно.
-
-    2. ПАУЗЫ: Добавляй "..." (три точки) там, где нужна выразительная пауза:
-       - Перед важным словом или поворотом сюжета
-       - После обращения ("Дорогие друзья... мы собрались здесь")
-       - В местах, где читатель бы сделал паузу
-
-    3. ИНТОНАЦИЯ: Добавляй теги эмоций в квадратных скобках перед фразой, \
-    которая требует особой интонации:
-       [грустно], [радостно], [удивлённо], [испуганно], [торжественно], \
-    [шёпотом], [сердито], [нежно], [иронично], [задумчиво]
-       Используй теги ТОЛЬКО там, где интонация действительно отличается от нейтральной.
-
-    ВАЖНО:
-    - Не меняй слова, не перефразируй, не добавляй и не удаляй текст.
-    - Возвращай ТОЛЬКО размеченный текст, без объяснений и комментариев.
-    - Сохраняй все знаки препинания оригинала.
-    - Не переусердствуй с разметкой — лучше меньше, но точнее.
-    """
 }
 
 // MARK: - Segment State

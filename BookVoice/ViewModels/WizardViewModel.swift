@@ -128,6 +128,8 @@ final class WizardViewModel {
     private func prepareStep(_ step: Int) async {
         switch step {
         case 3:
+            // Синхронизировать TTS-провайдер из шага 1
+            textPreprocessing.updateTTSProvider(project.ttsProvider)
             // Подготовить сегменты из шага 2 для LLM-обработки
             let segments = await textUpload.allSegments()
             textPreprocessing.prepareSegments(segments)
