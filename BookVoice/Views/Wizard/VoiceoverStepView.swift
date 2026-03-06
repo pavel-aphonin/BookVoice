@@ -4,11 +4,18 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct VoiceoverStepView: View {
     @Bindable var viewModel: VoiceoverViewModel
+    @Query(sort: \VoiceProfile.createdAt, order: .reverse)
+    private var voiceProfiles: [VoiceProfile]
 
     private let labelWidth: CGFloat = 130
+
+    private var readyProfiles: [VoiceProfile] {
+        voiceProfiles.filter(\.isReady)
+    }
 
     var body: some View {
         VStack(spacing: 16) {
@@ -64,6 +71,31 @@ struct VoiceoverStepView: View {
                     // === Образец голоса для клонирования (Base-модели) ===
                     if viewModel.supportsReferenceVoice {
                         VStack(alignment: .leading, spacing: 8) {
+                            // Голос из библиотеки
+                            if !readyProfiles.isEmpty {
+                                HStack(spacing: 12) {
+                                    Text("Голос из библиотеки")
+                                        .font(.callout)
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    Picker("Голос", selection: $viewModel.selectedVoiceProfileId) {
+                                        Text("Не выбран (вручную)").tag(UUID?.none)
+                                        ForEach(readyProfiles) { profile in
+                                            Text(profile.name).tag(Optional(profile.id))
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                    .onChange(of: viewModel.selectedVoiceProfileId) { _, newId in
+                                        if let id = newId,
+                                           let profile = readyProfiles.first(where: { $0.id == id }) {
+                                            viewModel.selectVoiceProfile(profile)
+                                        }
+                                    }
+                                }
+
+                                Divider()
+                            }
+
                             HStack(spacing: 12) {
                                 Text("Образец голоса")
                                     .font(.callout)

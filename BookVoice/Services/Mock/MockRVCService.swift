@@ -59,4 +59,29 @@ nonisolated final class MockRVCService: RVCService, Sendable {
     }
 
     func cancel() async {}
+
+    // MARK: - Training
+
+    func startTraining(
+        sampleAudioURL: URL,
+        modelName: String,
+        outputDirectory: URL,
+        epochs: Int
+    ) async throws -> String {
+        "mock-job-\(UUID().uuidString.prefix(8))"
+    }
+
+    func trainingStatus(jobId: String) async throws -> RVCTrainingStatus {
+        RVCTrainingStatus(
+            jobId: jobId,
+            phase: .completed,
+            progress: 1.0,
+            currentEpoch: 100,
+            totalEpochs: 100,
+            modelPath: "/mock/trained_model.pth",
+            errorMessage: nil
+        )
+    }
+
+    func cancelTraining(jobId: String) async throws {}
 }

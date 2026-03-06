@@ -11,6 +11,11 @@ struct TimbreChangeStepView: View {
     @Query(sort: \VoiceProfile.createdAt, order: .reverse)
     private var voiceProfiles: [VoiceProfile]
 
+    /// Только готовые к использованию голоса
+    private var readyProfiles: [VoiceProfile] {
+        voiceProfiles.filter(\.isReady)
+    }
+
     /// Выбран ли голос из библиотеки
     private var hasSelectedProfile: Bool {
         viewModel.selectedVoiceProfileId != nil
@@ -30,20 +35,20 @@ struct TimbreChangeStepView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         // Voice profile from library
-                        if !voiceProfiles.isEmpty {
+                        if !readyProfiles.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Голос из библиотеки")
                                     .font(.headline)
                                 Picker("Голос", selection: $viewModel.selectedVoiceProfileId) {
                                     Text("Не выбран").tag(UUID?.none)
-                                    ForEach(voiceProfiles) { profile in
+                                    ForEach(readyProfiles) { profile in
                                         Text(profile.name).tag(Optional(profile.id))
                                     }
                                 }
                                 .labelsHidden()
                                 .onChange(of: viewModel.selectedVoiceProfileId) { _, newValue in
                                     if let id = newValue,
-                                       let profile = voiceProfiles.first(where: { $0.id == id }) {
+                                       let profile = readyProfiles.first(where: { $0.id == id }) {
                                         viewModel.selectVoiceProfile(profile)
                                     }
                                 }

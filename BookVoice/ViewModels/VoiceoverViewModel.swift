@@ -63,6 +63,8 @@ final class VoiceoverViewModel {
     var referenceAudioURL: URL?
     var referenceText: String = ""
     var xVectorOnlyMode: Bool = false
+    // --- Голос из библиотеки ---
+    var selectedVoiceProfileId: UUID?
     // --- Subtalker (клонирование голоса) ---
     var subtalkerTemperature: Double = -1
     var subtalkerTopK: Int = -1
@@ -354,6 +356,24 @@ final class VoiceoverViewModel {
 
     func previewSegment(_ index: Int) async {
         // Audio preview handled by AudioPlayerViewModel
+    }
+
+    /// Выбрать голос из библиотеки — автоподстановка reference audio и расшифровки
+    func selectVoiceProfile(_ profile: VoiceProfile) {
+        selectedVoiceProfileId = profile.id
+        if let url = profile.resolveSampleAudioURL() {
+            referenceAudioURL = url
+        }
+        if let transcription = profile.sampleTranscription, !transcription.isEmpty {
+            referenceText = transcription
+        }
+    }
+
+    /// Сбросить выбор голоса из библиотеки
+    func clearVoiceProfile() {
+        selectedVoiceProfileId = nil
+        referenceAudioURL = nil
+        referenceText = ""
     }
 
     /// Выбрать файл с образцом голоса для клонирования (Base-модели)

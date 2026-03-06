@@ -59,7 +59,7 @@ struct VoiceProfileRow: View {
         case .pending:
             "Готовится к обучению\u{2026}"
         case .training:
-            "Обучается\u{2026}"
+            "Обучается\u{2026} \(Int(profile.trainingProgress * 100))%"
         case .failed:
             "Ошибка обучения"
         }

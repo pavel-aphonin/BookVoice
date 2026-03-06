@@ -19,6 +19,7 @@ final class VoiceLibraryViewModel {
     var newDescription = ""
     var newModelURL: URL?
     var newSampleAudioURL: URL?
+    var newSampleTranscription = ""
 
     /// Можно создать из готового файла модели
     var canCreate: Bool {
@@ -74,22 +75,154 @@ final class VoiceLibraryViewModel {
 
     /// Начать обучение из образца голоса.
     /// Создаёт профиль со статусом «обучается» — обучение RVC запускается асинхронно.
-    func startTraining(in context: ModelContext) {
+    func startTraining(
+        in context: ModelContext,
+        rvcService: any RVCService,
+        notificationService: any NotificationService
+    ) {
         guard let sampleURL = newSampleAudioURL else { return }
 
-        // Создаём профиль с временным путём (будет заменён после обучения)
-        let profile = VoiceProfile(name: newName, modelFilePath: "")
-        profile.descriptionText = newDescription
-        profile.sampleAudioPath = sampleURL.path
-        profile.sampleAudioBookmark = try? sampleURL.bookmarkData(options: .withSecurityScope)
+        // Копируем аудио в стабильную директорию (оригинал может быть удалён)
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let samplesDir = appSupport.appendingPathComponent("BookVoice/TrainingSamples", isDirectory: true)
+        try? FileManager.default.createDirectory(at: samplesDir, withIntermediateDirectories: true)
+
+        let stableSampleURL = samplesDir.appendingPathComponent("\(UUID().uuidString).\(sampleURL.pathExtension)")
+        try? FileManager.default.copyItem(at: sampleURL, to: stableSampleURL)
+
+        // Создаём профиль со статусом .pending
+        let profileName = newName
+        let profileDescription = newDescription
+        let transcription = newSampleTranscription
+
+        let profile = VoiceProfile(name: profileName, modelFilePath: "")
+        profile.descriptionText = profileDescription
+        profile.sampleAudioPath = stableSampleURL.path
+        profile.sampleAudioBookmark = try? stableSampleURL.bookmarkData(options: .withSecurityScope)
+        profile.sampleTranscription = transcription.isEmpty ? nil : transcription
         profile.trainingStatus = .pending
 
         context.insert(profile)
+        let profileId = profile.id
+
         resetForm()
         showingCreateSheet = false
 
-        // TODO: запустить обучение RVC асинхронно через RVCService
-        // После обучения — обновить profile.modelFilePath и profile.trainingStatus = .ready
+        // Запускаем обучение асинхронно
+        let modelsDir = appSupport.appendingPathComponent("BookVoice/Models", isDirectory: true)
+
+        Task { [weak self] in
+            await self?.runTraining(
+                profileId: profileId,
+                sampleURL: stableSampleURL,
+                modelName: profileName,
+                outputDirectory: modelsDir,
+                rvcService: rvcService,
+                notificationService: notificationService,
+                context: context
+            )
+        }
+    }
+
+    @MainActor
+    private func runTraining(
+        profileId: UUID,
+        sampleURL: URL,
+        modelName: String,
+        outputDirectory: URL,
+        rvcService: any RVCService,
+        notificationService: any NotificationService,
+        context: ModelContext
+    ) async {
+        // Ищем профиль по ID
+        let predicate = #Predicate<VoiceProfile> { $0.id == profileId }
+        let descriptor = FetchDescriptor<VoiceProfile>(predicate: predicate)
+
+        guard let profile = try? context.fetch(descriptor).first else {
+            print("Training: profile not found for id \(profileId)")
+            return
+        }
+
+        do {
+            // Запускаем обучение на сервере
+            let jobId = try await rvcService.startTraining(
+                sampleAudioURL: sampleURL,
+                modelName: modelName,
+                outputDirectory: outputDirectory,
+                epochs: 100
+            )
+
+            profile.trainingJobId = jobId
+            profile.trainingStatus = .training
+            try? context.save()
+
+            // Поллим статус каждые 5 секунд
+            let maxPollingDuration: TimeInterval = 2 * 60 * 60 // 2 часа
+            let startTime = Date()
+
+            while true {
+                try await Task.sleep(for: .seconds(5))
+
+                guard Date().timeIntervalSince(startTime) < maxPollingDuration else {
+                    profile.trainingStatus = .failed
+                    try? context.save()
+                    await notificationService.send(
+                        title: "Обучение голоса",
+                        body: "Обучение «\(modelName)» превысило лимит времени."
+                    )
+                    return
+                }
+
+                let status = try await rvcService.trainingStatus(jobId: jobId)
+                profile.trainingProgress = status.progress
+
+                switch status.phase {
+                case .completed:
+                    if let modelPath = status.modelPath {
+                        let modelURL = URL(fileURLWithPath: modelPath)
+                        profile.modelFilePath = modelPath
+                        profile.modelFileBookmark = try? modelURL.bookmarkData(options: .withSecurityScope)
+                    }
+                    profile.trainingStatus = .ready
+                    profile.trainingJobId = nil
+                    try? context.save()
+                    await notificationService.send(
+                        title: "Голос готов",
+                        body: "Голос «\(modelName)» успешно обучен и готов к использованию."
+                    )
+                    return
+
+                case .failed:
+                    profile.trainingStatus = .failed
+                    profile.trainingJobId = nil
+                    try? context.save()
+                    await notificationService.send(
+                        title: "Ошибка обучения",
+                        body: "Не удалось обучить голос «\(modelName)»: \(status.errorMessage ?? "неизвестная ошибка")"
+                    )
+                    return
+
+                case .cancelled:
+                    profile.trainingStatus = .failed
+                    profile.trainingJobId = nil
+                    try? context.save()
+                    return
+
+                case .preprocessing, .extractingFeatures, .training:
+                    try? context.save()
+                    continue
+                }
+            }
+
+        } catch {
+            profile.trainingStatus = .failed
+            profile.trainingJobId = nil
+            try? context.save()
+            await notificationService.send(
+                title: "Ошибка обучения",
+                body: "Не удалось обучить голос «\(modelName)»: \(error.localizedDescription)"
+            )
+        }
     }
 
     func deleteProfile(_ profile: VoiceProfile, from context: ModelContext) {
@@ -101,5 +234,6 @@ final class VoiceLibraryViewModel {
         newDescription = ""
         newModelURL = nil
         newSampleAudioURL = nil
+        newSampleTranscription = ""
     }
 }

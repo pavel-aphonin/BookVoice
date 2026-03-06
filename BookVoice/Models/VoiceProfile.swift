@@ -25,6 +25,9 @@ final class VoiceProfile {
     var createdAt: Date
     var tags: [String]
     var trainingStatusRaw: Int
+    var trainingJobId: String?
+    var trainingProgress: Double
+    var sampleTranscription: String?
 
     var trainingStatus: VoiceTrainingStatus {
         get { VoiceTrainingStatus(rawValue: trainingStatusRaw) ?? .ready }
@@ -44,6 +47,7 @@ final class VoiceProfile {
         self.trainingStatusRaw = modelFilePath.isEmpty
             ? VoiceTrainingStatus.pending.rawValue
             : VoiceTrainingStatus.ready.rawValue
+        self.trainingProgress = 0
     }
 
     /// Разрешает security-scoped доступ к файлу модели
@@ -59,5 +63,23 @@ final class VoiceProfile {
         }
         let url = URL(fileURLWithPath: modelFilePath)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// Разрешает security-scoped доступ к аудиообразцу
+    func resolveSampleAudioURL() -> URL? {
+        if let bookmark = sampleAudioBookmark {
+            var isStale = false
+            if let url = try? URL(resolvingBookmarkData: bookmark, options: .withSecurityScope, bookmarkDataIsStale: &isStale) {
+                if isStale {
+                    sampleAudioBookmark = try? url.bookmarkData(options: .withSecurityScope)
+                }
+                return url
+            }
+        }
+        if let path = sampleAudioPath, !path.isEmpty {
+            let url = URL(fileURLWithPath: path)
+            return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        }
+        return nil
     }
 }

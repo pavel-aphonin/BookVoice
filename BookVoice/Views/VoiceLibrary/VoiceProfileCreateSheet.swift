@@ -9,6 +9,7 @@ import SwiftData
 struct VoiceProfileCreateSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.services) private var services
     @Bindable var viewModel: VoiceLibraryViewModel
 
     @State private var creationMode: CreationMode = .fromSample
@@ -101,7 +102,11 @@ struct VoiceProfileCreateSheet: View {
                 switch creationMode {
                 case .fromSample:
                     Button {
-                        viewModel.startTraining(in: modelContext)
+                        viewModel.startTraining(
+                            in: modelContext,
+                            rvcService: services.rvc,
+                            notificationService: services.notification
+                        )
                         dismiss()
                     } label: {
                         Label("Создать голос", systemImage: "waveform.badge.plus")
@@ -130,35 +135,55 @@ struct VoiceProfileCreateSheet: View {
     // MARK: - From Sample Section
 
     private var fromSampleSection: some View {
-        glassPanel {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Запись или файл с образцом голоса")
-                    .font(.callout.weight(.medium))
+        VStack(spacing: 16) {
+            glassPanel {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Запись или файл с образцом голоса")
+                        .font(.callout.weight(.medium))
 
-                Text("Загрузите аудиозапись (от 30 секунд до 5 минут) с голосом, который хотите использовать. Приложение обучит модель по этому образцу. Обучение займёт 15\u{2013}20 минут.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text("Загрузите аудиозапись (от 30 секунд до 5 минут) с голосом, который хотите использовать. Приложение обучит модель по этому образцу. Обучение займёт 15\u{2013}20 минут.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-                HStack {
-                    if let url = viewModel.newSampleAudioURL {
-                        Label(url.lastPathComponent, systemImage: "waveform")
-                            .font(.subheadline)
-                            .lineLimit(1)
-                    } else {
-                        Text("Файл не выбран")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    HStack {
+                        if let url = viewModel.newSampleAudioURL {
+                            Label(url.lastPathComponent, systemImage: "waveform")
+                                .font(.subheadline)
+                                .lineLimit(1)
+                        } else {
+                            Text("Файл не выбран")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            viewModel.importSampleAudio()
+                        } label: {
+                            Label("Выбрать файл", systemImage: "waveform.badge.plus")
+                        }
                     }
+                    .padding(.top, 4)
+                }
+            }
 
-                    Spacer()
+            glassPanel {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Расшифровка (необязательно)")
+                        .font(.callout.weight(.medium))
 
-                    Button {
-                        viewModel.importSampleAudio()
-                    } label: {
-                        Label("Выбрать файл", systemImage: "waveform.badge.plus")
+                    Text("Запишите текст того, что говорится на записи. Расшифровка используется для клонирования голоса при озвучке.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    glassField {
+                        TextField("Текст того, что говорится на записи", text: $viewModel.newSampleTranscription, axis: .vertical)
+                            .textFieldStyle(.plain)
+                            .font(.body)
+                            .lineLimit(3...6)
                     }
                 }
-                .padding(.top, 4)
             }
         }
     }

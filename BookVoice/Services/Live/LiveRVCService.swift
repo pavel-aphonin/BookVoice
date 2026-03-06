@@ -145,6 +145,101 @@ actor LiveRVCService: RVCService {
         isCancelled = true
     }
 
+    // MARK: - Training
+
+    func startTraining(
+        sampleAudioURL: URL,
+        modelName: String,
+        outputDirectory: URL,
+        epochs: Int
+    ) async throws -> String {
+        let port = try await LocalServerManager.shared.ensureRVCServer()
+
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/train/start") else {
+            throw RVCError.trainingFailed("Invalid RVC server URL")
+        }
+
+        let body: [String: Any] = [
+            "sample_audio_path": sampleAudioURL.path,
+            "model_name": modelName,
+            "output_dir": outputDirectory.path,
+            "epochs": epochs,
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw RVCError.trainingFailed("Failed to start training: \(errorMsg)")
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let jobId = json["job_id"] as? String else {
+            throw RVCError.trainingFailed("Invalid response from training endpoint")
+        }
+
+        return jobId
+    }
+
+    func trainingStatus(jobId: String) async throws -> RVCTrainingStatus {
+        let port = try await LocalServerManager.shared.ensureRVCServer()
+
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/train/status/\(jobId)") else {
+            throw RVCError.trainingFailed("Invalid RVC server URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw RVCError.trainingFailed("Failed to get training status: \(errorMsg)")
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let statusStr = json["status"] as? String else {
+            throw RVCError.trainingFailed("Invalid training status response")
+        }
+
+        let phase = RVCTrainingStatus.Phase(rawValue: statusStr) ?? .failed
+
+        return RVCTrainingStatus(
+            jobId: jobId,
+            phase: phase,
+            progress: json["progress"] as? Double ?? 0,
+            currentEpoch: json["current_epoch"] as? Int,
+            totalEpochs: json["total_epochs"] as? Int,
+            modelPath: json["model_path"] as? String,
+            errorMessage: json["error"] as? String
+        )
+    }
+
+    func cancelTraining(jobId: String) async throws {
+        let port = try await LocalServerManager.shared.ensureRVCServer()
+
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/train/cancel/\(jobId)") else {
+            throw RVCError.trainingFailed("Invalid RVC server URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 10
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw RVCError.trainingFailed("Failed to cancel training")
+        }
+    }
+
     // MARK: - Private
 
     private func fetchModelsFromServer(port: Int) async throws -> [String] {
