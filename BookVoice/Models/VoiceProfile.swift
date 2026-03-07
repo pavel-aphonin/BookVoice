@@ -26,7 +26,7 @@ final class VoiceProfile {
     var tags: [String]
     var trainingStatusRaw: Int
     var trainingJobId: String?
-    var trainingProgress: Double
+    var trainingProgress: Double?
     var sampleTranscription: String?
 
     var trainingStatus: VoiceTrainingStatus {
