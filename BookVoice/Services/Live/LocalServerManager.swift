@@ -263,7 +263,7 @@ actor LocalServerManager {
         case "qwen":
             packages = ["fastapi", "uvicorn", "torch", "qwen_tts"]
         case "rvc":
-            packages = ["fastapi", "uvicorn", "rvc_python"]
+            packages = ["fastapi", "uvicorn", "rvc_python", "librosa", "parselmouth", "faiss"]
         case "llm":
             packages = ["fastapi", "uvicorn", "llama_cpp", "requests"]
         default:
