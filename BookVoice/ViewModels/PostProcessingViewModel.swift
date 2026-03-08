@@ -15,6 +15,7 @@ final class PostProcessingViewModel {
     var metadataAlbum: String
     var metadataYear: String
     var coverImageData: Data?
+    var segmentPauseDuration: Double = 0.7  // seconds of silence between segments
 
     var isMerging = false
     var isExporting = false
@@ -75,6 +76,7 @@ final class PostProcessingViewModel {
                 files: audioFiles,
                 outputURL: saveURL,
                 format: outputFormat,
+                pauseBetweenSegments: segmentPauseDuration,
                 progressHandler: { [weak self] prog in
                     guard let self else { return }
                     Task { @MainActor in

@@ -30,6 +30,18 @@ struct PostProcessingStepView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
+                        Text("Пауза между фрагментами")
+                            .font(.headline)
+                        HStack(spacing: 8) {
+                            Slider(value: $viewModel.segmentPauseDuration, in: 0...3.0, step: 0.1)
+                            Text(String(format: "%.1f сек", viewModel.segmentPauseDuration))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                                .frame(width: 55, alignment: .trailing)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
                         Text("Метаданные")
                             .font(.headline)
                         VStack(spacing: 10) {

@@ -170,10 +170,11 @@ actor LiveTTSService: TTSService {
         request.setValue(apiKey, forHTTPHeaderField: "xi-api-key")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 10)
+        let cleanText = stripAllBracketTags(from: text)
+        request.timeoutInterval = max(Self.requestTimeout, Double(cleanText.count) / 10)
 
         let body: [String: Any] = [
-            "text": text,
+            "text": cleanText,
             "model_id": "eleven_monolingual_v1",
             "voice_settings": [
                 "stability": 0.5,
@@ -251,11 +252,13 @@ actor LiveTTSService: TTSService {
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+        // Strip bracket tags — Qwen Cloud uses voice_instruct API param for emotion, not inline tags
+        let cleanText = stripAllBracketTags(from: text)
+        request.timeoutInterval = max(Self.requestTimeout, Double(cleanText.count) / 5)
 
         var body: [String: Any] = [
             "model": modelName.isEmpty ? "qwen3-tts-flash" : modelName,
-            "input": text,
+            "input": cleanText,
         ]
 
         if let emotion = emotion, !emotion.isEmpty {
@@ -279,7 +282,7 @@ actor LiveTTSService: TTSService {
         return outputURL
     }
 
-    // MARK: - Private: Local Providers (Silero/Kokoro/Qwen)
+    // MARK: - Private: Text Cleaning Utilities
 
     /// Extract an inline emotion tag like `[happy]` from the beginning of text.
     /// Returns the tag value and the remaining clean text.
@@ -294,6 +297,19 @@ actor LiveTTSService: TTSService {
         let cleanText = String(text[text.index(text.startIndex, offsetBy: match.range.length)...])
         return (tag, cleanText)
     }
+
+    /// Remove ALL [tag] patterns from text as a safety net.
+    /// Prevents bracket tags from being spoken as literal words by TTS engines.
+    /// Only matches ASCII-letter tags like [happy], [whisper], [angry] — not [1], [цитата], etc.
+    private nonisolated func stripAllBracketTags(from text: String) -> String {
+        let pattern = #"\[([a-zA-Z_]+)\]\s*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    // MARK: - Private: Local Providers (Silero/Kokoro/Qwen)
 
     private func synthesizeLocal(
         text: String,
@@ -318,10 +334,39 @@ actor LiveTTSService: TTSService {
             throw TTSError.connectionFailed("Invalid local server URL")
         }
 
-        // Extract inline [tag] from preprocessed text (e.g. "[whisper] Hello" → tag="whisper", clean="Hello")
-        let (inlineEmotion, cleanText) = extractInlineEmotion(from: text)
-        // Per-segment inline emotion takes priority over global emotion setting
-        let effectiveEmotion = inlineEmotion ?? emotion ?? ""
+        // Provider-aware text cleaning and emotion extraction
+        let textForSynthesis: String
+        let effectiveEmotion: String
+
+        switch provider {
+        case .silero:
+            // Silero doesn't understand any tags — strip everything
+            textForSynthesis = stripAllBracketTags(from: text)
+            effectiveEmotion = emotion ?? ""
+
+        case .qwenLocal:
+            // Base models (voice cloning) ignore emotion — strip all tags
+            let isBaseModel = modelName.contains("Base")
+            if isBaseModel {
+                textForSynthesis = stripAllBracketTags(from: text)
+                effectiveEmotion = ""
+            } else {
+                // CustomVoice/VoiceDesign — extract first tag for emotion, strip the rest
+                let (inlineEmotion, afterExtract) = extractInlineEmotion(from: text)
+                textForSynthesis = stripAllBracketTags(from: afterExtract)
+                effectiveEmotion = inlineEmotion ?? emotion ?? ""
+            }
+
+        case .kokoro:
+            // Kokoro uses XML-style tags, not bracket tags — strip brackets as safety
+            textForSynthesis = stripAllBracketTags(from: text)
+            effectiveEmotion = emotion ?? ""
+
+        default:
+            let (inlineEmotion, afterExtract) = extractInlineEmotion(from: text)
+            textForSynthesis = stripAllBracketTags(from: afterExtract)
+            effectiveEmotion = inlineEmotion ?? emotion ?? ""
+        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -329,13 +374,13 @@ actor LiveTTSService: TTSService {
         // Qwen: first request loads the model (3-5 min download + load), subsequent ~10-30s
         // Silero/Kokoro: much faster
         if provider == .qwenLocal {
-            request.timeoutInterval = max(Self.qwenFirstRequestTimeout, Double(cleanText.count))
+            request.timeoutInterval = max(Self.qwenFirstRequestTimeout, Double(textForSynthesis.count))
         } else {
-            request.timeoutInterval = max(Self.requestTimeout * 2, Double(cleanText.count) / 2)
+            request.timeoutInterval = max(Self.requestTimeout * 2, Double(textForSynthesis.count) / 2)
         }
 
         var body: [String: Any] = [
-            "text": cleanText,
+            "text": textForSynthesis,
             "model": modelName,
             "speed": speed,
             "pitch": pitch,
@@ -454,10 +499,12 @@ actor LiveTTSService: TTSService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = max(Self.requestTimeout, Double(text.count) / 5)
+        // Strip bracket tags as safety net — custom API format is unknown
+        let cleanText = stripAllBracketTags(from: text)
+        request.timeoutInterval = max(Self.requestTimeout, Double(cleanText.count) / 5)
 
         let body: [String: Any] = [
-            "text": text,
+            "text": cleanText,
             "model": modelName,
             "speed": speed,
             "pitch": pitch,

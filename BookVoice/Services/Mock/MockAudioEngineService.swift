@@ -33,6 +33,7 @@ actor MockAudioEngineService: AudioEngineService {
         files: [URL],
         outputURL: URL,
         format: AudioFormat,
+        pauseBetweenSegments: TimeInterval = 0,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> URL {
         for (i, _) in files.enumerated() {

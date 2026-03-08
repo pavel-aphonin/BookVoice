@@ -29,6 +29,7 @@ protocol AudioEngineService: Sendable {
         files: [URL],
         outputURL: URL,
         format: AudioFormat,
+        pauseBetweenSegments: TimeInterval,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> URL
 

@@ -64,6 +64,7 @@ actor LiveAudioEngineService: AudioEngineService {
         files: [URL],
         outputURL: URL,
         format: AudioFormat,
+        pauseBetweenSegments: TimeInterval = 0,
         progressHandler: @Sendable (Double) -> Void
     ) async throws -> URL {
         guard !files.isEmpty else {
@@ -119,12 +120,14 @@ actor LiveAudioEngineService: AudioEngineService {
         }
 
         // Determine output format and write
+        let pause = pauseBetweenSegments
+
         switch format {
         case .wav:
-            try concatenateToWAV(audioFiles: audioFiles, outputURL: outputURL, format: processingFormat, progressHandler: progressHandler)
+            try concatenateToWAV(audioFiles: audioFiles, outputURL: outputURL, format: processingFormat, pauseDuration: pause, progressHandler: progressHandler)
 
         case .m4a:
-            try concatenateToM4A(audioFiles: audioFiles, outputURL: outputURL, sampleRate: sampleRate, channelCount: channelCount, progressHandler: progressHandler)
+            try concatenateToM4A(audioFiles: audioFiles, outputURL: outputURL, sampleRate: sampleRate, channelCount: channelCount, pauseDuration: pause, progressHandler: progressHandler)
 
         case .mp3:
             // Write to temp WAV first, then convert with afconvert
@@ -133,14 +136,14 @@ actor LiveAudioEngineService: AudioEngineService {
                 .appendingPathExtension("wav")
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
-            try concatenateToWAV(audioFiles: audioFiles, outputURL: tempURL, format: processingFormat) { progress in
+            try concatenateToWAV(audioFiles: audioFiles, outputURL: tempURL, format: processingFormat, pauseDuration: pause) { progress in
                 progressHandler(progress * 0.8) // 80% for concatenation
             }
 
             // Try converting to MP3 with lame, fall back to M4A
             let mp3Success = tryConvertToMP3(input: tempURL, output: outputURL)
             if !mp3Success {
-                try concatenateToM4A(audioFiles: audioFiles, outputURL: outputURL, sampleRate: sampleRate, channelCount: channelCount) { progress in
+                try concatenateToM4A(audioFiles: audioFiles, outputURL: outputURL, sampleRate: sampleRate, channelCount: channelCount, pauseDuration: pause) { progress in
                     progressHandler(0.8 + progress * 0.2)
                 }
             }
@@ -153,7 +156,7 @@ actor LiveAudioEngineService: AudioEngineService {
                 .appendingPathExtension("wav")
             defer { try? FileManager.default.removeItem(at: tempURL) }
 
-            try concatenateToWAV(audioFiles: audioFiles, outputURL: tempURL, format: processingFormat) { progress in
+            try concatenateToWAV(audioFiles: audioFiles, outputURL: tempURL, format: processingFormat, pauseDuration: pause) { progress in
                 progressHandler(progress * 0.8)
             }
 
@@ -340,6 +343,7 @@ actor LiveAudioEngineService: AudioEngineService {
         audioFiles: [AVAudioFile],
         outputURL: URL,
         format: AVAudioFormat,
+        pauseDuration: TimeInterval = 0,
         progressHandler: @Sendable (Double) -> Void
     ) throws {
         let settings: [String: Any] = [
@@ -356,6 +360,21 @@ actor LiveAudioEngineService: AudioEngineService {
             outputFile = try AVAudioFile(forWriting: outputURL, settings: settings)
         } catch {
             throw AudioEngineError.concatenationFailed("Cannot create output file: \(error.localizedDescription)")
+        }
+
+        // Pre-create silence buffer if pause between segments is configured
+        let silenceBuffer: AVAudioPCMBuffer?
+        if pauseDuration > 0 {
+            let silenceFrames = AVAudioFrameCount(format.sampleRate * pauseDuration)
+            if let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: silenceFrames) {
+                buf.frameLength = silenceFrames
+                // Buffer data is zero-initialized = silence
+                silenceBuffer = buf
+            } else {
+                silenceBuffer = nil
+            }
+        } else {
+            silenceBuffer = nil
         }
 
         for (i, inputFile) in audioFiles.enumerated() {
@@ -388,6 +407,11 @@ actor LiveAudioEngineService: AudioEngineService {
                 } else {
                     try outputFile.write(from: buffer)
                 }
+
+                // Insert silence between segments (not after the last one)
+                if let silenceBuffer, i < audioFiles.count - 1 {
+                    try outputFile.write(from: silenceBuffer)
+                }
             } catch let e as AudioEngineError {
                 throw e
             } catch {
@@ -405,6 +429,7 @@ actor LiveAudioEngineService: AudioEngineService {
         outputURL: URL,
         sampleRate: Double,
         channelCount: AVAudioChannelCount,
+        pauseDuration: TimeInterval = 0,
         progressHandler: @Sendable (Double) -> Void
     ) throws {
         // First concatenate to temporary WAV
@@ -417,7 +442,7 @@ actor LiveAudioEngineService: AudioEngineService {
             throw AudioEngineError.concatenationFailed("No audio format available")
         }
 
-        try concatenateToWAV(audioFiles: audioFiles, outputURL: tempURL, format: format) { progress in
+        try concatenateToWAV(audioFiles: audioFiles, outputURL: tempURL, format: format, pauseDuration: pauseDuration) { progress in
             progressHandler(progress * 0.7)
         }
 
