@@ -281,6 +281,20 @@ actor LiveTTSService: TTSService {
 
     // MARK: - Private: Local Providers (Silero/Kokoro/Qwen)
 
+    /// Extract an inline emotion tag like `[happy]` from the beginning of text.
+    /// Returns the tag value and the remaining clean text.
+    private nonisolated func extractInlineEmotion(from text: String) -> (emotion: String?, cleanText: String) {
+        let pattern = #"^\s*\[([a-zA-Z_]+)\]\s*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let tagRange = Range(match.range(at: 1), in: text) else {
+            return (nil, text)
+        }
+        let tag = String(text[tagRange])
+        let cleanText = String(text[text.index(text.startIndex, offsetBy: match.range.length)...])
+        return (tag, cleanText)
+    }
+
     private func synthesizeLocal(
         text: String,
         modelName: String,
@@ -304,23 +318,28 @@ actor LiveTTSService: TTSService {
             throw TTSError.connectionFailed("Invalid local server URL")
         }
 
+        // Extract inline [tag] from preprocessed text (e.g. "[whisper] Hello" → tag="whisper", clean="Hello")
+        let (inlineEmotion, cleanText) = extractInlineEmotion(from: text)
+        // Per-segment inline emotion takes priority over global emotion setting
+        let effectiveEmotion = inlineEmotion ?? emotion ?? ""
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         // Qwen: first request loads the model (3-5 min download + load), subsequent ~10-30s
         // Silero/Kokoro: much faster
         if provider == .qwenLocal {
-            request.timeoutInterval = max(Self.qwenFirstRequestTimeout, Double(text.count))
+            request.timeoutInterval = max(Self.qwenFirstRequestTimeout, Double(cleanText.count))
         } else {
-            request.timeoutInterval = max(Self.requestTimeout * 2, Double(text.count) / 2)
+            request.timeoutInterval = max(Self.requestTimeout * 2, Double(cleanText.count) / 2)
         }
 
         var body: [String: Any] = [
-            "text": text,
+            "text": cleanText,
             "model": modelName,
             "speed": speed,
             "pitch": pitch,
-            "emotion": emotion ?? "",
+            "emotion": effectiveEmotion,
         ]
 
         // Add extended generation options
