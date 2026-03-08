@@ -153,7 +153,19 @@ actor LiveRVCService: RVCService {
         outputDirectory: URL,
         epochs: Int
     ) async throws -> String {
-        let port = try await LocalServerManager.shared.ensureRVCServer()
+        print("[RVC Training] Starting training for '\(modelName)'")
+        print("[RVC Training] Sample audio: \(sampleAudioURL.path)")
+        print("[RVC Training] Sample exists: \(FileManager.default.fileExists(atPath: sampleAudioURL.path))")
+        print("[RVC Training] Output dir: \(outputDirectory.path)")
+
+        let port: Int
+        do {
+            port = try await LocalServerManager.shared.ensureRVCServer()
+            print("[RVC Training] RVC server ready on port \(port)")
+        } catch {
+            print("[RVC Training] ERROR: Failed to start RVC server: \(error)")
+            throw error
+        }
 
         guard let url = URL(string: "http://127.0.0.1:\(port)/api/train/start") else {
             throw RVCError.trainingFailed("Invalid RVC server URL")
@@ -172,10 +184,18 @@ actor LiveRVCService: RVCService {
         request.timeoutInterval = 30
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            print("[RVC Training] ERROR: Network request to /api/train/start failed: \(error)")
+            throw RVCError.trainingFailed("Network error starting training: \(error.localizedDescription)")
+        }
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            print("[RVC Training] ERROR: Server returned non-200: \(errorMsg)")
             throw RVCError.trainingFailed("Failed to start training: \(errorMsg)")
         }
 
@@ -184,6 +204,7 @@ actor LiveRVCService: RVCService {
             throw RVCError.trainingFailed("Invalid response from training endpoint")
         }
 
+        print("[RVC Training] Job started: \(jobId)")
         return jobId
     }
 

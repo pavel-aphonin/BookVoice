@@ -88,7 +88,12 @@ final class VoiceLibraryViewModel {
         try? FileManager.default.createDirectory(at: samplesDir, withIntermediateDirectories: true)
 
         let stableSampleURL = samplesDir.appendingPathComponent("\(UUID().uuidString).\(sampleURL.pathExtension)")
-        try? FileManager.default.copyItem(at: sampleURL, to: stableSampleURL)
+        do {
+            try FileManager.default.copyItem(at: sampleURL, to: stableSampleURL)
+            print("[VoiceTraining] Copied sample to \(stableSampleURL.path)")
+        } catch {
+            print("[VoiceTraining] ERROR: Failed to copy sample audio: \(error)")
+        }
 
         // Создаём профиль со статусом .pending
         let profileName = newName
@@ -145,6 +150,7 @@ final class VoiceLibraryViewModel {
 
         do {
             // Запускаем обучение на сервере
+            print("[VoiceTraining] Starting training for '\(modelName)' with sample: \(sampleURL.path)")
             let jobId = try await rvcService.startTraining(
                 sampleAudioURL: sampleURL,
                 modelName: modelName,
@@ -152,6 +158,7 @@ final class VoiceLibraryViewModel {
                 epochs: 100
             )
 
+            print("[VoiceTraining] Training job started: \(jobId)")
             profile.trainingJobId = jobId
             profile.trainingStatus = .training
             try? context.save()
@@ -164,6 +171,7 @@ final class VoiceLibraryViewModel {
                 try await Task.sleep(for: .seconds(5))
 
                 guard Date().timeIntervalSince(startTime) < maxPollingDuration else {
+                    print("[VoiceTraining] Training timed out after \(maxPollingDuration)s")
                     profile.trainingStatus = .failed
                     try? context.save()
                     await notificationService.send(
@@ -175,10 +183,12 @@ final class VoiceLibraryViewModel {
 
                 let status = try await rvcService.trainingStatus(jobId: jobId)
                 profile.trainingProgress = status.progress
+                print("[VoiceTraining] Status: \(status.phase.rawValue), progress: \(status.progress)")
 
                 switch status.phase {
                 case .completed:
                     if let modelPath = status.modelPath {
+                        print("[VoiceTraining] Training completed! Model: \(modelPath)")
                         let modelURL = URL(fileURLWithPath: modelPath)
                         profile.modelFilePath = modelPath
                         profile.modelFileBookmark = try? modelURL.bookmarkData(options: .withSecurityScope)
@@ -193,6 +203,7 @@ final class VoiceLibraryViewModel {
                     return
 
                 case .failed:
+                    print("[VoiceTraining] Training failed: \(status.errorMessage ?? "unknown")")
                     profile.trainingStatus = .failed
                     profile.trainingJobId = nil
                     try? context.save()
@@ -203,6 +214,7 @@ final class VoiceLibraryViewModel {
                     return
 
                 case .cancelled:
+                    print("[VoiceTraining] Training cancelled")
                     profile.trainingStatus = .failed
                     profile.trainingJobId = nil
                     try? context.save()
@@ -215,6 +227,7 @@ final class VoiceLibraryViewModel {
             }
 
         } catch {
+            print("[VoiceTraining] ERROR: Training failed with exception: \(error)")
             profile.trainingStatus = .failed
             profile.trainingJobId = nil
             try? context.save()
