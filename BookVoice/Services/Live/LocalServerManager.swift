@@ -234,18 +234,7 @@ actor LocalServerManager {
         // Install provider-specific requirements
         let providerReqs = scriptsDir.appendingPathComponent("requirements_\(provider).txt")
         if FileManager.default.fileExists(atPath: providerReqs.path) {
-            do {
-                try await runPip(pythonPath: venvPython, requirementsFile: providerReqs)
-            } catch {
-                if provider == "rvc" {
-                    throw LocalServerError.dependencyInstallFailed(
-                        "Библиотека RVC (rvc-python) несовместима с текущей версией Python. "
-                        + "Изменение тембра голоса временно недоступно. "
-                        + "Вы можете пропустить этот шаг и экспортировать аудио без изменения тембра."
-                    )
-                }
-                throw error
-            }
+            try await runPip(pythonPath: venvPython, requirementsFile: providerReqs)
         }
     }
 
@@ -263,7 +252,7 @@ actor LocalServerManager {
         case "qwen":
             packages = ["fastapi", "uvicorn", "torch", "qwen_tts"]
         case "rvc":
-            packages = ["fastapi", "uvicorn", "rvc_python", "librosa", "parselmouth", "faiss"]
+            packages = ["fastapi", "uvicorn", "librosa", "parselmouth", "faiss"]
         case "llm":
             packages = ["fastapi", "uvicorn", "llama_cpp", "requests"]
         default:
@@ -494,14 +483,29 @@ actor LocalServerManager {
 
     /// Probe a port with an HTTP health check. Returns true if a healthy server responds.
     private nonisolated func probeHealthEndpoint(port: Int, path: String = "/api/health") async -> Bool {
+        await probeHealthEndpoint(port: port, path: path, expectedProvider: nil)
+    }
+
+    /// Probe a health endpoint. If `expectedProvider` is set, also verify the response contains the matching provider.
+    private nonisolated func probeHealthEndpoint(port: Int, path: String = "/api/health", expectedProvider: String?) async -> Bool {
         guard let url = URL(string: "http://127.0.0.1:\(port)\(path)") else { return false }
         var request = URLRequest(url: url)
         request.timeoutInterval = 3
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            if let http = response as? HTTPURLResponse, http.statusCode == 200 {
-                return true
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return false }
+
+            // If we need to verify the provider, parse the JSON response
+            if let expected = expectedProvider {
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let actual = json["provider"] as? String {
+                    if actual != expected {
+                        print("[Server] Port \(port) has provider '\(actual)', expected '\(expected)' — skipping")
+                        return false
+                    }
+                }
             }
+            return true
         } catch {
             // Not responding
         }
@@ -529,29 +533,29 @@ actor LocalServerManager {
             try? await Task.sleep(for: .seconds(2))
         }
 
-        // Fast path: check previously adopted orphan port first
+        // Fast path: check previously adopted orphan port first (must match provider)
         if let adoptedPort = serverPorts[.tts],
-           await probeHealthEndpoint(port: adoptedPort) {
+           await probeHealthEndpoint(port: adoptedPort, expectedProvider: provider) {
             serverProviders[.tts] = provider
             return adoptedPort
         }
 
-        // Probe for orphaned TTS server from a previous app session
+        // Probe for orphaned TTS server from a previous app session (must match provider)
         for portOffset in stride(from: 0, through: 8, by: 2) {
             let port = ttsDefaultPort + portOffset
-            if await probeHealthEndpoint(port: port) {
-                print("[Server] Found existing TTS server on port \(port), reusing")
+            if await probeHealthEndpoint(port: port, expectedProvider: provider) {
+                print("[Server] Found existing TTS server (\(provider)) on port \(port), reusing")
                 serverPorts[.tts] = port
                 serverProviders[.tts] = provider
                 return port
             }
         }
 
-        // Kill any orphaned processes on TTS ports before starting fresh
+        // Kill any orphaned/wrong-provider processes on TTS ports before starting fresh
         for portOffset in stride(from: 0, through: 8, by: 2) {
             let port = ttsDefaultPort + portOffset
             if !isPortAvailable(port) {
-                print("[Server] Killing orphaned process on TTS port \(port)")
+                print("[Server] Killing stale/wrong-provider process on TTS port \(port)")
                 killProcessOnPort(port)
             }
         }
