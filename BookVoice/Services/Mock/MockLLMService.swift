@@ -61,4 +61,15 @@ nonisolated final class MockLLMService: LLMService, Sendable {
     func downloadProgress() async -> Double? {
         nil
     }
+
+    func deleteModel(filename: String) async throws {
+        try await Task.sleep(for: .milliseconds(200))
+    }
+
+    func installedModelsInfo() async throws -> [InstalledModelInfo] {
+        [
+            InstalledModelInfo(filename: "mock-model-3b.gguf", sizeGB: 2.0, isLoaded: true),
+            InstalledModelInfo(filename: "mock-model-7b.gguf", sizeGB: 4.7, isLoaded: false),
+        ]
+    }
 }

@@ -177,33 +177,20 @@ struct TextPreprocessingStepView: View {
     @ViewBuilder
     private var modelDownloadSection: some View {
         if viewModel.selectedProvider.isLocal
-            && viewModel.availableModels.isEmpty
             && !viewModel.isLoadingModels
             && viewModel.connectionStatus == .connected {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Скачайте модель для работы:")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
 
-                ForEach(TextPreprocessingViewModel.recommendedModels) { model in
-                    Button {
-                        Task { await viewModel.downloadModel(model) }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(model.displayName)
-                                    .font(.callout)
-                            }
-                            Spacer()
-                            Text("\(model.sizeGB, specifier: "%.1f") ГБ")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(viewModel.isDownloading)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Каталог моделей")
+                        .font(.headline)
+                    Spacer()
+                    Text(String(format: "%.1f ГБ свободно", viewModel.availableRAMGB))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
+                // Download progress (shared)
                 if viewModel.isDownloading {
                     VStack(alignment: .leading, spacing: 4) {
                         ProgressView(value: max(viewModel.downloadProgress, 0.01)) {
@@ -222,6 +209,63 @@ struct TextPreprocessingStepView: View {
                         }
                     }
                 }
+
+                // Model catalog grouped by category
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(LLMModelCatalog.groupedModels, id: \.category) { group in
+                            modelCategorySection(
+                                category: group.category,
+                                models: group.models
+                            )
+                        }
+                    }
+                }
+                .frame(maxHeight: 300)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func modelCategorySection(
+        category: LLMModelCategory,
+        models: [LLMModelDefinition]
+    ) -> some View {
+        let isAboveComfort = category > viewModel.maxComfortableCategory
+
+        VStack(alignment: .leading, spacing: 6) {
+            // Category header
+            HStack(spacing: 6) {
+                Image(systemName: category.icon)
+                    .foregroundStyle(isAboveComfort ? .secondary : .primary)
+                    .imageScale(.small)
+                Text(category.displayName)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(isAboveComfort ? .secondary : .primary)
+                Text(category.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            ForEach(models) { model in
+                ModelCardView(
+                    model: model,
+                    isInstalled: viewModel.isInstalled(model),
+                    isSelected: viewModel.isSelected(model),
+                    isRecommended: model.id == viewModel.recommendedModelId,
+                    isDownloading: viewModel.downloadingModelId == model.id,
+                    isAnyDownloading: viewModel.isDownloading,
+                    isAboveComfort: isAboveComfort,
+                    onInstall: {
+                        Task { await viewModel.downloadCatalogModel(model) }
+                    },
+                    onDelete: {
+                        Task { await viewModel.deleteCatalogModel(model) }
+                    },
+                    onSelect: {
+                        viewModel.selectCatalogModel(model)
+                    }
+                )
             }
         }
     }
@@ -491,6 +535,115 @@ struct TextPreprocessingStepView: View {
             }
         }
         .padding(.top, 8)
+    }
+}
+
+// MARK: - Model Card
+
+private struct ModelCardView: View {
+    let model: LLMModelDefinition
+    let isInstalled: Bool
+    let isSelected: Bool
+    let isRecommended: Bool
+    let isDownloading: Bool
+    let isAnyDownloading: Bool
+    let isAboveComfort: Bool
+    let onInstall: () -> Void
+    let onDelete: () -> Void
+    let onSelect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            // Model info
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(model.displayName)
+                        .font(.callout)
+                        .fontWeight(isSelected ? .semibold : .regular)
+                        .foregroundStyle(isAboveComfort ? .secondary : .primary)
+
+                    if isRecommended {
+                        Text("Рек.")
+                            .font(.system(size: 9, weight: .semibold))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(.blue.opacity(0.15), in: Capsule())
+                            .foregroundStyle(.blue)
+                    }
+
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .imageScale(.small)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    Text(model.parameterCount)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text(model.formattedSize)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+
+                    if model.isMultilingual {
+                        Text("\(model.languageCount) яз.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Action buttons
+            if isInstalled {
+                HStack(spacing: 4) {
+                    if !isSelected {
+                        Button("Выбрать") {
+                            onSelect()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+
+                    Button {
+                        onDelete()
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(.red)
+                    .disabled(isAnyDownloading)
+                }
+            } else {
+                Button {
+                    onInstall()
+                } label: {
+                    if isDownloading {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Label("Скачать", systemImage: "arrow.down.circle")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(isAnyDownloading || isAboveComfort)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(isSelected ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 1)
+        )
     }
 }
 

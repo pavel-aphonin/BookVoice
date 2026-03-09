@@ -104,39 +104,38 @@ final class TextPreprocessingViewModel {
     private let llmService: any LLMService
     private var processingTask: Task<Void, Never>?
 
-    // MARK: - Recommended Models
+    // MARK: - Model Catalog
 
-    struct RecommendedModel: Identifiable {
-        let id: String
-        let displayName: String
-        let repoId: String
-        let filename: String
-        let sizeGB: Double
+    /// Installed model filenames (from server)
+    var installedModelFilenames: Set<String> = []
+
+    /// Currently downloading model ID (from catalog)
+    var downloadingModelId: String?
+
+    /// RAM info for display
+    var availableRAMGB: Double {
+        LLMModelCatalog.availableMemoryGB
     }
 
-    static let recommendedModels: [RecommendedModel] = [
-        RecommendedModel(
-            id: "qwen2.5-3b-instruct",
-            displayName: "Qwen 2.5 3B (рекомендуемая)",
-            repoId: "Qwen/Qwen2.5-3B-Instruct-GGUF",
-            filename: "qwen2.5-3b-instruct-q4_k_m.gguf",
-            sizeGB: 2.0
-        ),
-        RecommendedModel(
-            id: "qwen2.5-7b-instruct",
-            displayName: "Qwen 2.5 7B (лучше качество)",
-            repoId: "bartowski/Qwen2.5-7B-Instruct-GGUF",
-            filename: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-            sizeGB: 4.7
-        ),
-        RecommendedModel(
-            id: "gemma-2-2b-it",
-            displayName: "Gemma 2 2B (лёгкая)",
-            repoId: "bartowski/gemma-2-2b-it-GGUF",
-            filename: "gemma-2-2b-it-Q4_K_M.gguf",
-            sizeGB: 1.7
-        ),
-    ]
+    /// Recommended model based on available RAM
+    var recommendedModelId: String {
+        LLMModelCatalog.recommendedModel().id
+    }
+
+    /// Max comfortable category for user's system
+    var maxComfortableCategory: LLMModelCategory {
+        LLMModelCatalog.maxComfortableCategory()
+    }
+
+    /// Check if a catalog model is installed
+    func isInstalled(_ model: LLMModelDefinition) -> Bool {
+        installedModelFilenames.contains(model.filename.lowercased())
+    }
+
+    /// Check if a catalog model is selected
+    func isSelected(_ model: LLMModelDefinition) -> Bool {
+        selectedModel.lowercased() == model.filename.lowercased()
+    }
 
     // MARK: - Init
 
@@ -178,6 +177,11 @@ final class TextPreprocessingViewModel {
             connectionStatus = .connected
             let models = try await llmService.availableModels(provider: selectedProvider)
             availableModels = models
+
+            // Для локального провайдера — обновить кэш установленных моделей
+            if selectedProvider.isLocal {
+                installedModelFilenames = Set(models.map { $0.lowercased() })
+            }
         } catch {
             connectionStatus = .failed(error.localizedDescription)
             availableModels = []
@@ -191,9 +195,10 @@ final class TextPreprocessingViewModel {
         }
     }
 
-    /// Скачать модель (для локального провайдера)
-    func downloadModel(_ model: RecommendedModel) async {
+    /// Скачать модель из каталога
+    func downloadCatalogModel(_ model: LLMModelDefinition) async {
         isDownloading = true
+        downloadingModelId = model.id
         downloadProgress = 0
         downloadedMB = 0
         downloadTotalMB = model.sizeGB * 1000 // GB → MB
@@ -223,14 +228,53 @@ final class TextPreprocessingViewModel {
             )
             downloadProgress = 1.0
             downloadedMB = downloadTotalMB
-            // После скачивания — обновить список моделей
+
+            // После скачивания — обновить список моделей и авто-выбрать
+            await refreshInstalledModels()
             await checkConnectionAndLoadModels()
+            selectCatalogModel(model)
         } catch {
             errorMessage = "Ошибка загрузки: \(error.localizedDescription)"
         }
 
         progressTask.cancel()
+        downloadingModelId = nil
         isDownloading = false
+    }
+
+    /// Удалить установленную модель
+    func deleteCatalogModel(_ model: LLMModelDefinition) async {
+        errorMessage = nil
+
+        do {
+            try await llmService.deleteModel(filename: model.filename)
+
+            // Обновить список и сбросить выбор если удалена выбранная
+            await refreshInstalledModels()
+            await checkConnectionAndLoadModels()
+
+            if isSelected(model) {
+                selectedModel = availableModels.first ?? ""
+            }
+        } catch {
+            errorMessage = "Ошибка удаления: \(error.localizedDescription)"
+        }
+    }
+
+    /// Выбрать модель из каталога
+    func selectCatalogModel(_ model: LLMModelDefinition) {
+        selectedModel = model.filename
+    }
+
+    /// Обновить список установленных моделей из сервера
+    func refreshInstalledModels() async {
+        do {
+            let info = try await llmService.installedModelsInfo()
+            installedModelFilenames = Set(info.map { $0.filename.lowercased() })
+        } catch {
+            // Fallback: используем availableModels
+            installedModelFilenames = Set(availableModels.map { $0.lowercased() })
+        }
     }
 
     // MARK: - Segment Preparation

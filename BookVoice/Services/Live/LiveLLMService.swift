@@ -181,6 +181,50 @@ actor LiveLLMService: LLMService {
         return nil
     }
 
+    func deleteModel(filename: String) async throws {
+        let port = try await LocalServerManager.shared.ensureLLMServer()
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/delete") else {
+            throw LLMError.connectionFailed("Некорректный URL LLM-сервера")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
+
+        let body: [String: Any] = ["filename": filename]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await performRequest(request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let responseBody = String(data: data, encoding: .utf8) ?? "<no body>"
+            throw LLMError.processingFailed(
+                "Не удалось удалить модель (HTTP \(statusCode)): \(responseBody)"
+            )
+        }
+    }
+
+    func installedModelsInfo() async throws -> [InstalledModelInfo] {
+        let port = try await LocalServerManager.shared.ensureLLMServer()
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/models/info") else {
+            throw LLMError.connectionFailed("Некорректный URL LLM-сервера")
+        }
+
+        let (data, _) = try await performRequest(URLRequest(url: url))
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [[String: Any]] else {
+            return []
+        }
+
+        return models.compactMap { dict in
+            guard let filename = dict["filename"] as? String,
+                  let sizeGB = dict["size_gb"] as? Double else { return nil }
+            let isLoaded = dict["loaded"] as? Bool ?? false
+            return InstalledModelInfo(filename: filename, sizeGB: sizeGB, isLoaded: isLoaded)
+        }
+    }
+
     // MARK: - Retry Logic
 
     private func callWithRetry(
@@ -341,8 +385,11 @@ actor LiveLLMService: LLMService {
             "text": text,
             "system_prompt": systemPrompt,
             "model": model,
-            "temperature": 0.3,
-            "max_tokens": 4096,
+            "temperature": LLMModelCatalog.defaultTemperature,
+            "max_tokens": LLMModelCatalog.defaultMaxTokens,
+            "top_p": LLMModelCatalog.defaultTopP,
+            "top_k": LLMModelCatalog.defaultTopK,
+            "repeat_penalty": LLMModelCatalog.defaultRepeatPenalty,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

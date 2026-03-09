@@ -38,6 +38,19 @@ protocol LLMService: Sendable {
 
     /// Get current download progress (0.0–1.0), nil if no download is active.
     func downloadProgress() async -> Double?
+
+    /// Delete a local model file.
+    func deleteModel(filename: String) async throws
+
+    /// Get list of installed models with file sizes.
+    func installedModelsInfo() async throws -> [InstalledModelInfo]
+}
+
+/// Information about an installed local model.
+struct InstalledModelInfo: Sendable {
+    let filename: String
+    let sizeGB: Double
+    let isLoaded: Bool
 }
 
 // MARK: - Errors

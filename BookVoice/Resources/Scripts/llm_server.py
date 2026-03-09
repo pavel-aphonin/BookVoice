@@ -33,14 +33,21 @@ class ChatRequest(BaseModel):
     text: str
     system_prompt: str = ""
     model: str = ""
-    temperature: float = 0.3
-    max_tokens: int = 4096
+    temperature: float = 0.2
+    max_tokens: int = 512
+    top_p: float = 0.9
+    top_k: int = 20
+    repeat_penalty: float = 1.1
 
 
 class DownloadRequest(BaseModel):
     repo_id: str
     filename: str
     expected_size_bytes: int = 0  # fallback if HF metadata fails
+
+
+class DeleteRequest(BaseModel):
+    filename: str
 
 
 # --- Model Management ---
@@ -137,6 +144,9 @@ async def chat(request: ChatRequest):
             messages=messages,
             temperature=request.temperature,
             max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            top_k=request.top_k,
+            repeat_penalty=request.repeat_penalty,
         )
         content = result["choices"][0]["message"]["content"]
         return {"content": content}
@@ -344,6 +354,58 @@ async def download_model(request: DownloadRequest):
 @app.get("/api/download/status")
 async def download_status():
     return _download_progress
+
+
+@app.post("/api/delete")
+async def delete_model(request: DeleteRequest):
+    """Delete a model file from the models directory."""
+    global _engine, _current_model_path
+
+    if not _models_dir:
+        raise HTTPException(status_code=500, detail="Models directory not configured")
+
+    # Sanitize filename (prevent directory traversal)
+    filename = os.path.basename(request.filename)
+    if not filename.endswith(".gguf"):
+        raise HTTPException(status_code=400, detail="Only .gguf files can be deleted")
+
+    model_path = os.path.join(_models_dir, filename)
+    if not os.path.isfile(model_path):
+        raise HTTPException(status_code=404, detail=f"Model not found: {filename}")
+
+    # Unload model if it's currently loaded
+    if _current_model_path == model_path and _engine is not None:
+        del _engine
+        _engine = None
+        _current_model_path = None
+        print(f"[LLM] Unloaded model before deletion: {filename}", flush=True)
+
+    try:
+        os.remove(model_path)
+        print(f"[LLM] Deleted model: {filename}", flush=True)
+        return {"status": "deleted", "filename": filename}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete: {e}")
+
+
+@app.get("/api/models/info")
+async def list_models_with_info():
+    """List all models with file sizes."""
+    if not _models_dir or not os.path.isdir(_models_dir):
+        return {"models": []}
+
+    models = []
+    for f in sorted(os.listdir(_models_dir)):
+        if f.endswith(".gguf"):
+            path = os.path.join(_models_dir, f)
+            size_bytes = os.path.getsize(path)
+            models.append({
+                "filename": f,
+                "size_bytes": size_bytes,
+                "size_gb": round(size_bytes / 1_073_741_824, 2),
+                "loaded": _current_model_path == path,
+            })
+    return {"models": models}
 
 
 # --- Main ---
