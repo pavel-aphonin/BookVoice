@@ -26,38 +26,38 @@ struct TextPreprocessingStepView: View {
 
     @ViewBuilder
     private var settingsPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Подготовка текста")
-                .font(.title2.bold())
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Подготовка текста")
+                    .font(.title2.bold())
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text("LLM-модель расставит ударения, паузы и интонационные метки в тексте перед озвучкой.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                Text("LLM-модель расставит ударения, паузы и интонационные метки в тексте перед озвучкой.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
 
-            // Enable toggle
-            Toggle("Использовать подготовку текста", isOn: $viewModel.isEnabled)
-                .toggleStyle(.switch)
+                // Enable toggle
+                Toggle("Использовать подготовку текста", isOn: $viewModel.isEnabled)
+                    .toggleStyle(.switch)
 
-            if viewModel.isEnabled {
-                Divider()
+                if viewModel.isEnabled {
+                    Divider()
 
-                llmConfigSection
+                    llmConfigSection
 
-                Divider()
+                    Divider()
 
-                preprocessingOptionsSection
+                    preprocessingOptionsSection
 
-                Divider()
+                    Divider()
 
-                processingControls
+                    processingControls
 
-                Divider()
+                    Divider()
 
-                promptSection
+                    promptSection
+                }
             }
-
-            Spacer()
         }
         .onChange(of: viewModel.selectedProvider) {
             if viewModel.isEnabled {
@@ -211,17 +211,14 @@ struct TextPreprocessingStepView: View {
                 }
 
                 // Model catalog grouped by category
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach(LLMModelCatalog.groupedModels, id: \.category) { group in
-                            modelCategorySection(
-                                category: group.category,
-                                models: group.models
-                            )
-                        }
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(LLMModelCatalog.groupedModels, id: \.category) { group in
+                        modelCategorySection(
+                            category: group.category,
+                            models: group.models
+                        )
                     }
                 }
-                .frame(maxHeight: 300)
             }
         }
     }
